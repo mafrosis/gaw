@@ -163,8 +163,10 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
    - the coverage profile, then the uncovered-lines report **once per touched package, separately**.
      A space-separated list is not a substitute; report the per-package output.
    - mutation of every guard the change added, per class 2 above
-   - the project's invariants index, if it keeps one: any invariant the change touches that is still
-     enforced only by prose rather than by a type or a mechanical test
+   - the project's invariants check, and read its invariants index against the change in both
+     directions: a universal invariant the change introduced or altered with no row, and a row the
+     change made wrong. The checker resolves citations, so it catches a renamed test; nothing
+     catches a row that was never added, or one whose claim the change quietly narrowed.
    - if the review is `N > 1`, judge each `R(N-1).X` item as *genuinely fixed* rather than ticked,
      by mutation — and check whether the fix itself introduced a new instance of either class. Every
      regression in the originating repository's history arrived in a review fix, not in an apply.

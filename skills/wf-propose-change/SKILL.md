@@ -86,3 +86,9 @@ that writes a failing test.
 - Durable artifacts cite **symbols**, never `file:line` — a line number is a scheduled drift report.
 - Record architectural decisions where the project keeps them, not in the change. A change's design
   is how *this* change works; an ADR is a decision the repository keeps.
+- A change that introduces or alters a **universal invariant** — a claim quantified over a set the
+  code can enumerate, "every write validates its identifier" — carries a task to add or update its
+  row in the project's invariants index. The invariants check and the test suite check the rows
+  resolve; nothing checks that a missing row was noticed, which is why it is a task. Two mechanisms
+  that look like the right answer here and are not — a validating newtype and a route table with a
+  flag — are recorded with the measurements that rejected them. Read that before proposing either.

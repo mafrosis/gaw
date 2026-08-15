@@ -100,5 +100,8 @@ Run /wf-review <name> first, then re-run /wf-archive.
 - **The review gate is a hard block.** Never archive a change containing code without
   `review.md`. Fail closed when unsure.
 - Use `git mv` so the change's history follows it.
+- Run the project's invariants check. If the change added or altered a universal invariant and the
+  invariants index has no row for it, say so and confirm before archiving: the index is the only
+  place that answers "what enforces this claim" once the change is archived.
 - Stage explicit paths, and do not sweep unrelated work into the archive commit — another
   session may have staged files.

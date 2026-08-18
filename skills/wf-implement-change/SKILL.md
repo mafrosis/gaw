@@ -38,13 +38,31 @@ Implement tasks from a change.
    - **Otherwise:** announce the progress and the remaining task groups, then proceed to
      implementation starting at the first unticked task.
 
-3. **Implement tasks (loop until done or blocked)**
+3. **Seed the session todo list from `tasks.md`**
+
+   Before touching any code, call the **todowrite** tool once with **one todo per unticked task**
+   in `tasks.md`, in file order, each labelled `<group>.<n> <task text>`. Do this every session,
+   including a resumed one — the harness starts with an empty list, so a resumed session that
+   skips this step runs with no visible plan at all.
+
+   `tasks.md` is the durable record; the todo list is a session mirror of it. Where they
+   disagree, `tasks.md` wins and the todo list is re-seeded from it. Never invent a todo that has
+   no task behind it, and never let the mirror drift — the whole value is that the user can see
+   what is left without reading the file.
+
+   Add `RN.X` review-fix tasks as todos on the same terms. If a task group is discovered to need
+   splitting mid-session, re-seed from `tasks.md` after editing it, not the other way round.
+
+4. **Implement tasks (loop until done or blocked)**
 
    For each pending task:
+   - Mark its todo `in_progress` — exactly one at a time
    - Show which task is being worked on
    - Make the code changes required
    - Keep changes minimal and focused
-   - Mark task complete in the tasks file: `- [ ]` → `- [x]`
+   - Mark task complete in the tasks file: `- [ ]` → `- [x]`, **and** mark its todo `completed`
+     in the same beat — the checkbox and the todo move together, never batched to the end of a
+     group
    - Continue to next task
 
    **After each task group** (all tasks under a `## N` heading complete): auto-commit that group's
@@ -60,7 +78,7 @@ Implement tasks from a change.
    - Error or blocker encountered → report and wait for guidance
    - User interrupts
 
-4. **Definition of done for a review fix (`RN.X` tasks)**
+5. **Definition of done for a review fix (`RN.X` tasks)**
 
    A fix for a review finding is held to the standard the finding was raised under. Apply it to the
    fix's *own* output, not only to the code it corrects. Every regression in the originating
@@ -98,7 +116,7 @@ Implement tasks from a change.
    a bug. If the fix requires a new mechanism or an interface change, stop and escalate to
    `/wf-update` + `/wf-review-proposal` rather than designing it here.
 
-5. **On completion or pause, show status**
+6. **On completion or pause, show status**
 
    Display:
    - Tasks completed this session
@@ -106,9 +124,9 @@ Implement tasks from a change.
    - If all done: suggest archive
    - If paused: explain why and wait for guidance
 
-6. **Addendum — recommended test plan** (run when the apply session concludes: all tasks complete, or you're wrapping up a partial session)
+7. **Addendum — recommended test plan** (run when the apply session concludes: all tasks complete, or you're wrapping up a partial session)
 
-   a. Summarize the work completed this session, including any task groups left incomplete (see step 5).
+   a. Summarize the work completed this session, including any task groups left incomplete (see step 6).
 
    b. Present the user with a **Recommended Test Plan** — concrete steps and commands to verify the
       functionality works as intended (e.g. the project's test command, named packages or suites,
@@ -123,7 +141,7 @@ Implement tasks from a change.
       ```
       Skip this commit if `test_plan.md` is unchanged. Defer the addendum if apply paused mid-task awaiting clarification.
 
-7. **Close the report with a confidence value on whether a review is needed**
+8. **Close the report with a confidence value on whether a review is needed**
 
     The last thing the report says is whether `/wf-review` is worth a session, stated as a
     **confidence that a round is unnecessary**, with the measurements behind it and what would
@@ -245,18 +263,25 @@ What would you like to do?
 ```
 
 **Guardrails**
+- **Seed the todo list from `tasks.md` before writing any code** (step 3), every session,
+  including a resumed one. The harness has no view into `tasks.md`, so a session that skips this
+  runs with the user unable to see the plan or the progress — which is the most common way this
+  skill has been run wrong.
+- **The todo list mirrors `tasks.md`; it never diverges from it.** One todo per unticked task,
+  exactly one `in_progress`, and the checkbox and the todo are marked complete in the same beat.
+  `tasks.md` is authoritative — re-seed from it after any edit to it.
 - Keep going through tasks until done or blocked
 - Always read the change's artifacts before starting
 - If task is ambiguous, pause and ask before implementing
 - If implementation reveals issues, pause and suggest artifact updates
 - Keep code changes minimal and scoped to each task
-- Update task checkbox immediately after completing each task
+- Update task checkbox **and its todo** immediately after completing each task
 - Auto-commit once per task group (bundling code with its checkbox updates) per the project's commit
   policy
-- **A group containing `RN.X` review fixes is not committable until step 4's four conditions
+- **A group containing `RN.X` review fixes is not committable until step 5's four conditions
   hold.** A fix that adds an unverified guard has moved the fault rather than closed it, and
   nothing mechanical will notice.
-- **A fix does only what its finding asked** (step 4d). If you are adding a mechanism
+- **A fix does only what its finding asked** (step 5d). If you are adding a mechanism
   inside a review fix, stop and escalate via `/wf-update` + `/wf-review-proposal`.
 - **Never design in a review fix.** If an `RN.X` task calls for a new mechanism or an interface
   change, stop and escalate to `/wf-update` + `/wf-review-proposal`.
@@ -265,7 +290,7 @@ What would you like to do?
 - Pause on errors, blockers, or unclear requirements - don't guess
 - On wrap-up, present a recommended test plan and write/merge `changes/<name>/test_plan.md`,
   committing it per the Apply checkpoint (`docs(changes): test-plan <name>`)
-- **Close the report with the review-confidence value** (step 7), its six signals, what would
+- **Close the report with the review-confidence value** (step 8), its six signals, what would
   change it, and — whenever you recommend skipping — the targeted check that replaces the round.
   A recommendation to skip with no named substitute is a recommendation to stop checking.
 - **A claim is not pinned until a test exercises every clause of it.** Verifying per whole claim

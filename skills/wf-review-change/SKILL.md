@@ -12,8 +12,12 @@ Review the implementation of a change for quality and adherence to what it propo
 
 This is an **agent-driven** operation. The deep review is delegated to the `review`
 subagent (Task tool); you orchestrate context resolution, then persist findings to
-`review.md` and recommended fixes to `tasks.md`. This skill NEVER modifies implementation
-code — fixes are captured as tasks and implemented later via `/wf-implement`.
+`review.md`, **close the trivial ones yourself**, and record the rest as `RN.X` tasks in
+`tasks.md` for `/wf-implement`.
+
+This step **never changes production behaviour**. It may fix a test or a document; a fix that
+alters what the service does is a task, always. That line is the whole of the rule, and step 5
+routes every finding by it.
 
 **Input**: Optionally specify a change name (e.g., `/wf-review add-auth`). If omitted,
 check if it can be inferred from conversation context. If vague or ambiguous you MUST
@@ -62,17 +66,34 @@ they are present.
 Code, tests, the change's `proposal.md` and `design.md`, and the operator-facing documentation
 the change touched. That is the whole scope.
 
-**What this step may write — exactly two files**
+**What this step may write**
 
-`changes/<name>/review.md`, and the `RN.X` lines in `tasks.md` that the user approved. Nothing
-else. It does **not** edit `proposal.md` or `design.md`, even when a finding is plainly
-correct: those are pre-apply artifacts, and the workflow's only design gate
-(`/wf-review-proposal`) sits before apply. A plan revised here is a plan nobody reviewed.
+Three things, all in **one** commit:
 
-That is the mirror of `/wf-review-proposal`, which **does** rewrite those artifacts freely because
-nothing is built when it runs. Once code exists the asymmetry inverts: a `design` finding is
-escalated to `/wf-update` (revise the artifacts) then `/wf-review-proposal` (review the revision).
-See "The proposal is corrected before apply, not after".
+1. `changes/<name>/review.md` — always.
+2. `changes/<name>/tasks.md` — the `RN.X` lines for findings that are not closed in place.
+3. **The test and documentation files a trivial finding is closed by**, per step 5's
+   `fix now` route.
+
+It may **not** write:
+
+- **Production code.** Not a Go statement outside a `_test.go` file, not anything under
+  `app/src/`. A finding whose fix would is a task, without exception, and that is what keeps
+  this step's blast radius the size of a test.
+- **`proposal.md` or `design.md`**, even when a finding is plainly correct. Those are pre-apply
+  artifacts and the workflow's only design gate (`/wf-review-proposal`) sits before apply. A
+  plan revised here is a plan nobody reviewed.
+
+That second bar is the mirror of `/wf-review-proposal`, which **does** rewrite those artifacts
+freely because nothing is built when it runs. Once code exists the asymmetry inverts: a `design`
+finding is escalated to `/wf-update` (revise the artifacts) then `/wf-review-proposal` (review the
+revision). See "The proposal is corrected before apply, not after".
+
+**A fix this step makes is held to the same standard as an `RN.X` fix.** the review-fix rules are
+not about which command applied the fix. So a test added here is confirmed red against the mutation
+it defends, with that mutation recorded in a comment on the test, and The gate — format, lint and
+test, plus any suite the touched surface needs — passes before the commit. A trivial fix is trivial
+in size, never in evidence.
 
 **What is not under review, at all:**
 
@@ -153,8 +174,11 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
      a. findings organized by Focus Area, each with `file:line` references
      b. each finding classified `Blocking` / `Should fix` / `Non-blocking`, and tagged
         `correctness` | `verification` | `docs` | `design` | `cleanup` (see step 5)
-     c. a verdict (see scale below)
-     d. a numbered list of recommended fixes (empty if none)
+     c. **for each finding, what its fix would touch** — `test-only`, `doc-only`,
+        `production`, or `plan` — because that is what step 5 routes on, and the subagent that
+        read the code is best placed to say. A finding whose fix it cannot size says so.
+     d. a verdict (see scale below)
+     e. a numbered list of recommended fixes (empty if none)
 
    **Grounding requirements.** State the result of each, and say plainly when one was not run:
    - the project's format, lint and test commands, plus any suite the touched surface needs
@@ -162,7 +186,7 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
      absent, and built but never asked for. Nothing checks this.
    - the coverage profile, then the uncovered-lines report **once per touched package, separately**.
      A space-separated list is not a substitute; report the per-package output.
-   - mutation of every guard the change added, per class 2 above
+   - mutation of every guard the change added, per class 1 above
    - the project's invariants check, and read its invariants index against the change in both
      directions: a universal invariant the change introduced or altered with no row, and a row the
      change made wrong. The checker resolves citations, so it catches a renamed test; nothing
@@ -173,32 +197,76 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
    - a tool that reports "no findings" is not evidence until you have seen it report a
      finding you planted. An empty report and a broken invocation are indistinguishable.
 
-5. **Triage and escalate before writing anything**
+5. **Triage: route every finding to one of three dispositions**
 
-   Classify every finding, then act on the class rather than dumping all of them into
-   `tasks.md`:
+   Classify each finding, then route it. **The route is determined by the finding, not by
+   asking.** Only the third route involves the user, and most rounds will have nothing in it.
 
-   - **`correctness`, `verification`, `docs`** — recommend as `RN.X` fixes in this change.
-     These are what the review exists to catch.
-   - **`design`** — a finding that adds a mechanism, changes an interface, or refactors
-     across package boundaries is **not** a review fix, and it is **not** something this step
-     edits into `design.md` itself. Say so, and recommend `/wf-update` followed by
-     `/wf-review-proposal` so the new design is reviewed before it is written. A mechanism
-     authored in a review fix is unreviewed design entering the tree at the one point in the
-     workflow with no design gate.
+   **Route A — `fix now`. Close it yourself, in this round's commit.**
 
-     **The resolution you recommend sets the tag, not the most expensive one available.** A
-     finding that can be closed either by correcting a document or by adding a mechanism is
-     `docs` when you recommend the document, and it costs one `RN.X` line. Record the mechanism
-     as the alternative; the user *choosing* it is what escalates. Tagging by the expensive
-     branch sent a one-sentence correction through `/wf-update` + `/wf-review-proposal` for
-     two reviews running, because the branch nobody recommended set the route.
-   - **`cleanup`** — duplication, naming, comment polish, test tidying. Collect these into a single
-     `Deferred — follow-up change` subsection of `review.md` and do **not** add them as `RN.X` tasks
-     unless the user asks. Shipping twenty cosmetic edits alongside five bug fixes gives the
-     cosmetic ones the same commit-and-move-on treatment as the bugs, and the originating
-     repository's regressions came from exactly that (two small tidy-ups, each of which shipped a
-     regression).
+   - `docs` — a wrong or stale sentence in `README.md`, an example config, a code comment, or a
+     invariants-index row. Correct it.
+   - `verification` where the fix is **test-only and additive** — a missing case, a mutation
+     comment that was never recorded, a vacuous assertion to delete.
+   - `cleanup` that touches only prose or comments.
+
+   These are the findings whose fix is smaller than the sentence describing it. Asking about
+   them costs a round trip to be told "yes", and a review that stops to ask about a one-word
+   comment correction is a review nobody runs.
+
+   **Two things disqualify a finding from this route, however small the diff:**
+
+   - **Changing an existing assertion's expected value.** Adding a case is additive; editing
+     what a test expects means either the test was wrong (a `design` question — route C) or the
+     code is (a bug — route B). A review that "fixes" a test by relaxing it has destroyed the
+     evidence it exists to protect. Adding a case and deleting a provably vacuous one are the
+     only two edits to existing test files this route permits.
+   - **Any production-code edit.** See the write scope above.
+
+   **Route B — `task`. Write the `RN.X` line without asking.**
+
+   - `correctness` — a bug. Always a task, however small, because the fix changes what the
+     service does and that is what `/wf-implement`'s evidence gate exists for.
+   - A **defect in what was implemented against what the proposal promised** — something
+     promised and absent, or built and not asked for. The proposal is not in question here;
+     the code's adherence to it is.
+
+   Write these straight into `tasks.md` and say so in the report. They are not judgement calls:
+   a bug is a task, and a proposal-adherence defect is a task.
+
+   **Route C — `ask`. Present it to the user and write nothing until they answer.**
+
+   Exactly two kinds of finding reach the user:
+
+   - **A material finding about functionality whose resolution may need the plan changed** —
+     it adds a mechanism, changes an interface, or refactors across a package boundary. This is
+     the `design` tag. Recommend `/wf-update` then `/wf-review-proposal` so the new design is
+     reviewed before it is written; a mechanism authored in a review fix is unreviewed design
+     entering the tree at the one point in the workflow with no design gate.
+   - **The proposal or design itself looks wrong** — not the code's fidelity to it, but the
+     plan. Only the person who owns the objective can decide that, and no route this step
+     controls can.
+
+   **The resolution you recommend sets the route, not the most expensive one available.** A
+   finding closable either by correcting a document or by adding a mechanism is `docs`, and it
+   goes to route A. Record the mechanism as the alternative; the user *choosing* it is what
+   escalates. Routing by the expensive branch sent a one-sentence correction through
+   `/wf-update` + `/wf-review-proposal` for two reviews running, because the branch nobody
+   recommended set the route.
+
+   **Deferred, and on no route.** `cleanup` that touches code structure — duplication, renames, a
+   refactor — is listed in a `Deferred — follow-up change` subsection of `review.md` and becomes
+   neither a fix nor a task unless the user asks. Shipping twenty cosmetic edits alongside five bug
+   fixes gives the cosmetic ones the same commit-and-move-on treatment as the bugs, and the
+   originating repository's regressions came from exactly that: two small tidy-ups, each of which
+   shipped a regression.
+
+   **Why routes A and B do not ask.** The rule they replace made every finding a question, on the
+   grounds that "a review that writes its own task list converts every observation into committed
+   work" — three rounds on one change produced 21 tasks that way and 14 were later dropped. That
+   evidence is real but it indicts the *cleanup* class, which is why cleanups are still deferred and
+   still unasked-for. It says nothing about a bug or a stale comment. Gating those on a question
+   bought no scheduling decision and cost a round trip every time.
 
    **Provenance gate — is the finding against work anyone asked for?**
 
@@ -231,8 +299,8 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
 
    Append a `## Review N` section to `changes/<name>/review.md` (create the file if absent),
    containing the verdict, the grounding results from step 4 as a single compact block, the
-   findings by Focus Area, and the `Deferred — follow-up change` list from step 5. NEVER
-   rewrite or renumber prior `## Review K` sections.
+   findings by Focus Area each marked with its route, and the `Deferred — follow-up change`
+   list from step 5. NEVER rewrite or renumber prior `## Review K` sections.
 
    Apply the brevity rules before writing, not after: each finding once, length earned by
    severity, documentation debt one line each, no inventory of what is correct, no praise, and
@@ -243,52 +311,76 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
    lines** naming the class and what would close it, so the next review acts on it rather than
    re-diagnosing it. Not a section.
 
-7. **Report findings. Do not create tasks without approval.**
+7. **Close the route-A findings**
 
-   Write the findings to `review.md`. Then **ask the user** which, if any, should become
-   `RN.X` tasks — presenting them grouped by the verdict test below, with your
-   recommendation. Write to `tasks.md` only what they approve, and only then.
+   Make each `fix now` edit. For a test added or changed, confirm it red against the mutation it
+   defends and record that mutation in a comment on the test — the same standard `/wf-implement`
+   holds an `RN.X` fix to.
 
-   A review that writes its own task list converts every observation into committed work. Three
-   rounds on one change produced 21 tasks that way; 14 were later dropped — after being written,
-   numbered, sequenced and committed. The finding is the deliverable; the task list is a scheduling
-   decision that belongs to whoever owns the schedule.
+   Then run the gate: format, lint and test, plus any suite the touched surface needs, plus the
+   invariants check if a row moved. Do not proceed until all pass. A review that commits a red tree
+   has done more damage than the finding it closed.
 
-   For anything the user approves: include only `correctness` / `verification` / `docs` findings.
-   For a `design` finding, write one task that says to run `/wf-update` and `/wf-review-proposal` —
-   never the implementation itself. Write each as one line; the project's standards forbid narrating
-   evidence into the artifact. Lead the section with which items block.
+   If a fix turns out to be larger than route A allows — it needs a production edit, or an
+   existing assertion's expected value has to move — **stop and reroute it** to B or C. Say so in
+   `review.md`. Discovering that mid-fix is information, not an obstacle.
+
+8. **Write the route-B tasks**
+
+   Append a `## Review N Findings` section to `tasks.md` with one `- [ ] RN.X <action>` line per
+   route-B finding. No asking. Lead with which items block. One line each: the project's standards
+   forbid narrating evidence into the artifact, and the evidence is already in `review.md`.
+
+9. **Ask — only if route C has anything in it**
+
+   If route C is empty, **ask nothing** and go to step 10. That is the common case.
+
+   Otherwise present only the route-C findings, with your recommendation for each, and wait. For
+   a `design` finding the recommendation is `/wf-update` then `/wf-review-proposal` — never the
+   implementation, and never a mechanism prescribed in an `RN.X` line. For "the proposal looks
+   wrong", the recommendation is which part of it you believe is wrong and why; the decision is
+   the user's.
+
+   Write whatever they approve into `tasks.md`, as one line each.
 
    **A review may not create meta-work.** A finding that a tool or a `Makefile` target would help is
    recorded as a finding, not turned into a change. The project's standards cap meta-work at one
    change in flight and reserve that decision for the user.
 
-8. **Commit** — per the Review checkpoint:
+10. **Commit — once, with everything** — per the Review checkpoint:
 
-   ```bash
-   git add "changes/<name>/review.md"          # plus tasks.md, if the user approved tasks
-   git commit -m "docs(changes): review <name> (review N)"
-   ```
+    ```bash
+    git add "changes/<name>/review.md" "changes/<name>/tasks.md" <files fixed in step 7>
+    git commit -m "docs(changes): review <name> (review N)"
+    ```
+
+    One commit per round, staged by explicit path, containing the findings, the fixes made in
+    place, and the tasks left for `/wf-implement`. Never commit `review.md` before step 9 has
+    answered: a round that commits its findings and then asks leaves the tasks in a second
+    commit, and the round's record is then split across two.
 
 **Verdict Scale**
 
-The verdict turns on one mechanical question, asked of each finding: **does fixing it change
-executable behaviour** — a Go statement, a `Makefile` recipe, a `.golangci.yaml` setting, or a
-test assertion? Not "is it important"; that judgement is what let three rounds of prose
-findings read as blocking.
+The verdict says **what is left for someone else** once this round's commit lands. A finding
+closed in place by route A leaves nothing, so it does not make the verdict `Changes required`;
+report it as fixed and move on.
+
+For anything not closed in place, the question is mechanical: **does fixing it change executable
+behaviour** — a Go statement, a `Makefile` recipe, a `.golangci.yaml` setting, or a test
+assertion? Not "is it important"; that judgement is what let three rounds of prose findings read
+as blocking.
 
 - **Approved** — no findings worth acting on.
-- **Approved with documentation debt** — no finding changes executable behaviour. The
-  remaining items are prose: list them in `review.md`, create **no tasks**, and fix them in a
-  single pass before archive. They never trigger another review round.
-- **Changes required** — at least one finding changes executable behaviour, **or** the gap
-  exceeds the scope cap and needs a new proposal rather than fixes.
+- **Approved with fixes applied** — findings existed and every one went to route A. They are
+  fixed in this round's commit, with the gate green. Nothing is left and no round follows.
+- **Changes required** — at least one `RN.X` task remains, or a route-C finding is open, or the
+  gap exceeds the scope cap and needs a new proposal rather than fixes.
 
 A second, independent test applies to any finding against **review-derived** work (step 5): it
-counts toward `Changes required` only if it is **user-observable**. A round whose blocking set is
-entirely review-derived and none of it user-observable is `Approved with documentation debt`, and
-the review-derived work is **dropped rather than completed**. Both tests must pass for a finding
-to block — executable *and*, where review-derived, user-observable.
+counts toward `Changes required` only if it is **user-observable**. A round whose remaining set is
+entirely review-derived and none of it user-observable is `Approved with fixes applied`, and the
+review-derived work is **dropped rather than completed**. Both tests must pass for a finding to
+block — executable *and*, where review-derived, user-observable.
 
 **Output On Success**
 
@@ -297,14 +389,16 @@ to block — executable *and*, where review-derived, user-observable.
 
 **Verdict:** <verdict>
 **Findings:** <count> (Proposal: n, Quality: n, Security: n, Tests: n, ...)
-**Behavioural:** <count> (findings whose fix changes executable behaviour)
+**Fixed in this commit:** <count> (route A — tests and docs, gate green)
+**Tasks written:** <count> (route B — bugs and proposal-adherence defects)
+**Awaiting your decision:** <count> (route C — design, or the proposal itself)
 **Review-derived:** <count> of <total> (against work no proposal asked for; user-observable: n)
-**Documentation debt:** <count> (prose; no tasks, one pass before archive)
-**Escalated to proposal:** <count> design findings
+**Deferred:** <count> (structural cleanups; neither fixed nor tasked)
 **Grounding:** fmt/lint/test <result>; cover-gaps per package <result>; guards mutated <count>
 **Written:** review.md (Review N) — <lines> lines against design.md's <lines>
 
-<then ask which findings should become tasks, and say what you recommend>
+<if route C is non-empty: present those findings and ask. Otherwise say nothing and stop —
+ the round is complete and the next step is /wf-implement or /wf-archive.>
 ```
 
 **Guardrails**
@@ -312,12 +406,24 @@ to block — executable *and*, where review-derived, user-observable.
 - Favor simple, yet high quality code. Ensure the change delivers what its proposal promised.
 - Keep recommendations tightly scoped to the change's intended outcome.
 - Read the project's own standards and its relevant decision records before reviewing.
-- **Review only — never modify implementation code.** Fixes become `RN.X` tasks implemented
-  via `/wf-implement`.
-- **Write only `review.md` and the approved `RN.X` lines in `tasks.md`.** Never edit
-  `proposal.md` or `design.md`. Correcting those pre-apply is `/wf-review-proposal`'s job and
-  it does so freely; correcting them *post*-apply goes through `/wf-update` +
-  `/wf-review-proposal`, because that is the only path on which a revised plan gets reviewed.
+- **Never change production behaviour.** No Go statement outside a `_test.go` file, nothing
+  under `app/src/`. Those fixes are `RN.X` tasks implemented via `/wf-implement`, which is where
+  the evidence gate lives.
+- **Fix the trivial findings; do not ask about them.** A stale comment, a missing test case, a
+  vacuous assertion — close them in this round's commit. Route C (step 5) is the only route that
+  reaches the user, and a round with nothing in it asks nothing at all.
+- **Never relax an existing assertion.** Adding a test case is route A; changing what a test
+  expects is a bug or a design question. A review that edits an assertion to match the code has
+  destroyed the only durable record of the intended behaviour.
+- **Hold your own fixes to the `RN.X` standard.** A test you add here needs its mutation proof
+  and the mutation in a comment on it, and the gate green before the commit. Trivial in size,
+  never in evidence.
+- **One commit per round**, containing `review.md`, `tasks.md` and the files fixed in place.
+  Never commit the findings and then ask.
+- **Never edit `proposal.md` or `design.md`.** Correcting those pre-apply is
+  `/wf-review-proposal`'s job and it does so freely; correcting them *post*-apply goes through
+  `/wf-update` + `/wf-review-proposal`, because that is the only path on which a revised plan
+  gets reviewed.
 - **Never author a design in a review.** A finding may say a design is wrong; the replacement goes
   through `/wf-update` + `/wf-review-proposal` — never through an edit to `design.md` made here, and
   never through a mechanism prescribed in an `RN.X` task. Prescribing a mechanism is how a review

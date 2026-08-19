@@ -10,7 +10,7 @@ metadata:
 
 Review the implementation of a change for quality and adherence to what it proposed.
 
-This is an **agent-driven** operation. The deep review is delegated to the `review`
+This is an **agent-driven** operation. The deep review is delegated to the `general`
 subagent (Task tool); you orchestrate context resolution, then persist findings to
 `review.md`, **close the trivial ones yourself**, and record the rest as `RN.X` tasks in
 `tasks.md` for `/wf-implement`.
@@ -157,9 +157,9 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
    Read `changes/<name>/review.md` if it exists. Set `N` to the highest existing
    `## Review K` number + 1; otherwise `N = 1`.
 
-4. **Delegate the deep review to the `review` subagent**
+4. **Delegate the deep review to the `general` subagent**
 
-   Use the Task tool (subagent_type: "review"). The prompt MUST include:
+   Use the Task tool (subagent_type: "general"). The prompt MUST include:
    - the change name and its artifact paths (proposal, design, tasks)
    - the Focus Areas above **and the two classes no mechanical check can find**
    - **what is under review and what is not** — in particular that `review.md` is never a source of
@@ -187,6 +187,10 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
    - the coverage profile, then the uncovered-lines report **once per touched package, separately**.
      A space-separated list is not a substitute; report the per-package output.
    - mutation of every guard the change added, per class 1 above
+   - `git status --short` before returning, with the result stated. `general` has write access,
+     so a mutation session's restores are verified rather than assumed — twenty-six edits to
+     invert thirteen guards, and a missed restore is silent whenever the suite still passes. If
+     the tree differs from how the round found it, that goes at the top of the report.
    - the project's invariants check, and read its invariants index against the change in both
      directions: a universal invariant the change introduced or altered with no row, and a row the
      change made wrong. The checker resolves citations, so it catches a renamed test; nothing

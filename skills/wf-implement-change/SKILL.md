@@ -45,10 +45,12 @@ Implement tasks from a change.
    including a resumed one — the harness starts with an empty list, so a resumed session that
    skips this step runs with no visible plan at all.
 
+   The label matters mechanically, not just for reading: `.opencode/plugins/tasks-todo-sync.ts`
+   joins a todo to its task on that leading identifier, and a todo without one is invisible to it.
+
    `tasks.md` is the durable record; the todo list is a session mirror of it. Where they
    disagree, `tasks.md` wins and the todo list is re-seeded from it. Never invent a todo that has
-   no task behind it, and never let the mirror drift — the whole value is that the user can see
-   what is left without reading the file.
+   no task behind it.
 
    Add `RN.X` review-fix tasks as todos on the same terms. If a task group is discovered to need
    splitting mid-session, re-seed from `tasks.md` after editing it, not the other way round.
@@ -60,9 +62,7 @@ Implement tasks from a change.
    - Show which task is being worked on
    - Make the code changes required
    - Keep changes minimal and focused
-   - Mark task complete in the tasks file: `- [ ]` → `- [x]`, **and** mark its todo `completed`
-     in the same beat — the checkbox and the todo move together, never batched to the end of a
-     group
+   - Tick the box in `tasks.md`: `- [ ]` → `- [x]`, and mark its todo `completed`
    - Continue to next task
 
    **After each task group** (all tasks under a `## N` heading complete): auto-commit that group's
@@ -71,6 +71,16 @@ Implement tasks from a change.
    # stage this group's changed files + tasks.md, then:
    git commit -m "<type>(<scope>): <group summary> [<name>]"
    ```
+
+   **Reconcile the todo list against `tasks.md` as the first act of that commit**, before staging.
+   This is the anchor: the checkbox is bundled into a commit and so cannot be skipped without the
+   commit being wrong, where the todo list has nothing holding it — nothing in this loop ever reads
+   it back, and step 6 counts progress from `tasks.md`, so the report reads correct while the
+   sidebar is stale. Reconciling here puts the mirror on the one step in the loop that cannot be
+   skipped.
+
+   `tasks-todo-sync` reports the disagreement in the result of the edit that caused it, so if it
+   said nothing, there is nothing to reconcile.
 
    **Pause if:**
    - Task is unclear → ask for clarification
@@ -273,15 +283,14 @@ What would you like to do?
   including a resumed one. The harness has no view into `tasks.md`, so a session that skips this
   runs with the user unable to see the plan or the progress — which is the most common way this
   skill has been run wrong.
-- **The todo list mirrors `tasks.md`; it never diverges from it.** One todo per unticked task,
-  exactly one `in_progress`, and the checkbox and the todo are marked complete in the same beat.
-  `tasks.md` is authoritative — re-seed from it after any edit to it.
+- **`tasks.md` is authoritative; the todo list mirrors it.** One todo per unticked task, labelled
+  with the task's identifier, exactly one `in_progress`. Reconcile the mirror at the group commit
+  (step 4), which is the only step in the loop that cannot be skipped.
 - Keep going through tasks until done or blocked
 - Always read the change's artifacts before starting
 - If task is ambiguous, pause and ask before implementing
 - If implementation reveals issues, pause and suggest artifact updates
 - Keep code changes minimal and scoped to each task
-- Update task checkbox **and its todo** immediately after completing each task
 - Auto-commit once per task group (bundling code with its checkbox updates) per the project's commit
   policy
 - **A group containing `RN.X` review fixes is not committable until step 5's four conditions

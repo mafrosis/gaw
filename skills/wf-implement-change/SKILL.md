@@ -144,49 +144,55 @@ Implement tasks from a change.
 8. **Close the report with a confidence value on whether a review is needed**
 
     The last thing the report says is whether `/wf-review` is worth a session, stated as a
-    **confidence that a round is unnecessary**, with the measurements behind it and what would
+    **confidence that a round is necessary**, with the measurements behind it and what would
     flip it. A round costs roughly what the apply session cost, so the decision gets made
     either way — ending with "Next: `/wf-review`" just makes it silently and always in the
     same direction.
+
+    State it positively: "Confidence a review round is necessary: High" says run one. The value
+    was once phrased as confidence a round is *unnecessary*, which made every reading a double
+    negative — "High" meant skip, and the band a reader most associates with risk was the one
+    licensing the least checking.
 
     Report the six signals in the output template below. Each is a fact about the session
     rather than a judgement, which is the point: the bands are defined by what they license,
     not by how the work felt.
 
-    - **High** — recommend skipping the round and name the cheaper check that replaces it. Licensed
+    - **Low** — recommend skipping the round, and name the cheaper check that replaces it. Licensed
       **only** when all four hold: no new mechanism, interface or package boundary was authored;
       every guard added is mutation-proven red with the mutation in a test comment; every **clause**
       of every behaviour the proposal promised is pinned by a named test; and the production diff is
       small enough that a reader can hold it in their head.
-    - **Moderate** — the default when any one of those is unmet. Recommend a review **scoped to
-      the surface you name**, or a targeted check broader than High's.
-    - **Low** — recommend `/wf-review`. Any new mechanism, any guard added without a failing
+    - **Moderate** — the default when any one of Low's four conditions is unmet. Recommend a
+      review **scoped to the surface you name**, or a targeted check broader than Low's.
+    - **High** — recommend `/wf-review`. Any new mechanism, any guard added without a failing
       test, or a production diff large enough that its own author cannot enumerate its edges.
 
-    State a band. Add a percentage only if you can say what would make it lower; otherwise it
+    State a band. Add a percentage only if you can say what would make it higher; otherwise it
     is decoration.
 
-    **Confidence is about the round, never about the code.** High confidence is a claim that a
+    **Confidence is about the round, never about the code.** A Low value is a claim that a
     *cheaper check covers the same surface* — never that the surface is clean. In the session
     this step was added from, skipping review 2 was the right call **and** the targeted check
     that replaced it still found a claim describing code that did not exist. So: name the
     check, then run it. A skipped round is a substituted check, not an absent one.
 
-    **Cap the value at Moderate while any test written this session is verified only at whole-claim
-    granularity.** A test's name is a claim, and each clause of that claim needs exercising. A test
-    named, say, "the record is saved **and the cache is cleared**" can demonstrate the first half
-    and not the second while the second half is false. A test existing per claim is not the check; a
-    test exercising each clause is.
+    **Floor the value at Moderate while any test written this session is verified only at
+    whole-claim granularity.** A test's name is a claim, and each clause of that claim needs
+    exercising. A test named, say, "the record is saved **and the cache is cleared**" can
+    demonstrate the first half and not the second while the second half is false. A test existing
+    per claim is not the check; a test exercising each clause is.
 
     **Weigh provenance.** If this session's work was `RN.X` review fixes, a following round would be
     reviewing review-derived work, which the provenance gate permits to block only on a
     user-observable defect — so the round's conclusion is largely predetermined. Say so, and prefer
     the targeted check. If the session implemented the proposal's *What Changes*, a round has
-    proposed work to review and the presumption is weaker.
+    proposed work to review and that argument for skipping is weaker.
 
-    **Never inflate the value because you authored the work.** The assessment is being made by
+    **Never talk the value down because you authored the work.** The assessment is being made by
     whoever just wrote the code, which is the one perspective that cannot see its own blind
-    spot. Where a signal is unmeasured, report it as unmeasured rather than as passing — an
+    spot, and the bias runs one way: toward Low, because Low is the band that ends the session.
+    Where a signal is unmeasured, report it as unmeasured rather than as passing — an
     unrun `cover-gaps` and a clean one are indistinguishable in a report that omits both.
 
 **Output During Implementation**
@@ -224,7 +230,7 @@ Test plan written to `test_plan.md`.
 
 ### Review Recommendation
 
-**Confidence a review round is unnecessary: <High | Moderate | Low>**
+**Confidence a review round is necessary: <High | Moderate | Low>**
 
 <two to four lines of justification, citing the signals below>
 
@@ -238,7 +244,7 @@ Test plan written to `test_plan.md`.
 | Artifact volume | <n lines — inside/above the one-round band> |
 
 **What would change this answer:** <the specific finding that would flip it>
-**Instead of a round:** <the targeted check to run, and its scope>
+**Instead of a round:** <the targeted check to run, and its scope — required when Low>
 
 All tasks complete! Next: <`/wf-review`, or the targeted check then `/wf-archive`>.
 ```
@@ -290,12 +296,13 @@ What would you like to do?
 - Pause on errors, blockers, or unclear requirements - don't guess
 - On wrap-up, present a recommended test plan and write/merge `changes/<name>/test_plan.md`,
   committing it per the Apply checkpoint (`docs(changes): test-plan <name>`)
-- **Close the report with the review-confidence value** (step 8), its six signals, what would
-  change it, and — whenever you recommend skipping — the targeted check that replaces the round.
+- **Close the report with the review-confidence value** (step 8) — stated as confidence a round
+  is **necessary**, so High means run one — its six signals, what would change it, and, whenever
+  you recommend skipping, the targeted check that replaces the round.
   A recommendation to skip with no named substitute is a recommendation to stop checking.
 - **A claim is not pinned until a test exercises every clause of it.** Verifying per whole claim
   rather than per clause is how a test can assert something that does not happen and still reach a
-  commit. Cap the confidence at Moderate until this is done per clause.
+  commit. Floor the confidence at Moderate until this is done per clause.
 
 **Fluid Workflow Integration**
 

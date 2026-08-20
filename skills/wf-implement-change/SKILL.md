@@ -88,6 +88,26 @@ Implement tasks from a change.
    - Error or blocker encountered → report and wait for guidance
    - User interrupts
 
+   **Capture a decision this session made, before its evidence is gone.** Apply is where a decision
+   is not just taken but *measured*, and the measurement exists nowhere else: a rejected alternative
+   rests on the attempts made and what each returned — none of which anybody has after the session
+   ends. A session that leaves that unrecorded has not deferred the work; it has destroyed the
+   evidence, and the next change pays for those attempts again.
+
+   So when the work decides something that meets the three tests — it constrains a change nobody has
+   proposed yet, its evidence is an absence, or it narrows a record already accepted — and no task
+   covers it:
+
+   - **Append the task to the current group** rather than writing the record silently, so it is
+     committed with the work that produced it and `changestat` counts it. One line, per the
+     `tasks.md` rule: the record itself carries the reasoning.
+   - The task writes the record, adds its row to the decision-record index, and marks any accepted
+     record the discovery contradicts — status, amendment block, index row, per that index.
+   - **But if the decision changes the change's direction** — it reverses a recorded ADR, or
+     abandons the approach `design.md` was reviewed on — stop and escalate to `/wf-update` +
+     `/wf-review-proposal`. Authoring a new direction here is unreviewed design entering the tree,
+     for the reason step 5(d) gives, and the escalation is cheap while the code is still warm.
+
 5. **Definition of done for a review fix (`RN.X` tasks)**
 
    A fix for a review finding is held to the standard the finding was raised under. Apply it to the
@@ -307,6 +327,10 @@ What would you like to do?
   change, stop and escalate to `/wf-update` + `/wf-review-proposal`.
 - **Record every deviation with its evidence** in `Deviations from review N's recommendations`
   in `tasks.md`. A silently-approximated fix reads as done at the next review.
+- **A decision this session measured gets its record, as an appended task in the group that
+  produced it** (step 4). The measurement behind a rejected alternative exists only during apply;
+  leaving it uncaptured makes the next change repeat it. A decision that changes *direction*
+  escalates instead.
 - Pause on errors, blockers, or unclear requirements - don't guess
 - On wrap-up, present a recommended test plan and write/merge `changes/<name>/test_plan.md`,
   committing it per the Apply checkpoint (`docs(changes): test-plan <name>`)

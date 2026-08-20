@@ -56,7 +56,10 @@ that writes a failing test.
    - **Context**: only the current state needed to explain the approach. Point at the
      proposal for motivation rather than restating it.
    - **Goals / Non-Goals**: design-level boundaries, not a restatement of scope.
-   - **Decisions**: each with its rationale and the alternatives considered. Why X over Y.
+   - **Decisions**: each with its rationale and the alternatives considered. Why X over Y. A
+     decision whose reach extends past this change belongs in a decision record instead — this is
+     where that is noticed, so check each entry against the ADR guardrail below and cite the record
+     rather than restating it.
    - **Risks / Trade-offs**: `[risk] → mitigation`.
    - **Migration Plan**: deployment order and rollback, when either is non-trivial.
    - **Open Questions**: only genuinely deferrable unknowns. A question that would change
@@ -86,6 +89,21 @@ that writes a failing test.
 - Durable artifacts cite **symbols**, never `file:line` — a line number is a scheduled drift report.
 - Record architectural decisions where the project keeps them, not in the change. A change's design
   is how *this* change works; an ADR is a decision the repository keeps.
+- **Ask the ADR question explicitly, in both directions, and write the answer as a task.** The rule
+  "A decision the next change would re-litigate gets a record" holds the three tests and the
+  amendment trigger; apply them here, because this is the cheapest point at which they can be met.
+  - **Creating** — does the change decide something that constrains a change nobody has proposed
+    yet, or that will be evidenced only by an absence (a refusal, a thing deliberately not built, an
+    alternative measured and rejected)? Then a task in the group whose work makes that decision
+    writes the record, and a task adds its row to the decision-record index.
+  - **Contradicting** — you have already read the relevant records in step 3. Name any whose
+    sentences this change makes false, and carry a task to mark each per the decision-record index:
+    status `Accepted (amended)`, an amendment block naming the amending record, and the index row.
+    This half is the one that gets missed, because it is work on a file the change is not otherwise
+    touching.
+  - A change that decides nothing durable says so in `design.md` — under Decisions, that its
+    decisions are local to this change. An unstated answer is indistinguishable from a
+    forgotten one, which is what `/wf-review-proposal` would otherwise have to guess at.
 - A change that introduces or alters a **universal invariant** — a claim quantified over a set the
   code can enumerate, "every write validates its identifier" — carries a task to add or update its
   row in the project's invariants index. The invariants check and the test suite check the rows

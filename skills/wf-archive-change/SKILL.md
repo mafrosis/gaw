@@ -79,6 +79,7 @@ ambiguous you MUST ask rather than guess.
 **Archived to:** changes/archive/YYYY-MM-DD-<name>/
 **Tasks:** <done>/<total>
 **Review:** review.md present (or: exempt — docs/tooling only)
+**Decisions:** <the records this change wrote or amended, or: none owed>
 
 <any warnings the user accepted>
 ```
@@ -103,5 +104,13 @@ Run /wf-review <name> first, then re-run /wf-archive.
 - Run the project's invariants check. If the change added or altered a universal invariant and the
   invariants index has no row for it, say so and confirm before archiving: the index is the only
   place that answers "what enforces this claim" once the change is archived.
+- **Ask the ADR question once more, because this is the last point the change's context is in
+  hand.** Read the change's `design.md` Decisions and its `review.md` findings against the three
+  tests: a decision that constrains a change nobody has proposed yet, one evidenced by an absence,
+  one narrowing an accepted record. If a record is owed and none was written — or an accepted record
+  the change contradicted is still unmarked — say so and use the **question** tool before archiving.
+  This informs and confirms; it does not block. Once the directory moves, the reasoning survives
+  only in `changes/archive/`, which nobody reads while deciding the next change, and reconstructing
+  it later produces a guess with a date on it.
 - Stage explicit paths, and do not sweep unrelated work into the archive commit — another
   session may have staged files.

@@ -195,6 +195,11 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
      directions: a universal invariant the change introduced or altered with no row, and a row the
      change made wrong. The checker resolves citations, so it catches a renamed test; nothing
      catches a row that was never added, or one whose claim the change quietly narrowed.
+   - **the decision records against the change, in both directions**, and report on each: a decision
+     the change made that meets the three tests and no record holds, and an accepted record whose
+     sentences the change made false. Nothing mechanical checks either, and the second is missed
+     more often because it is a file the change never opened. The two land on different routes in
+     step 5 — marking a contradicted record is route A, a missing record is route C.
    - if the review is `N > 1`, judge each `R(N-1).X` item as *genuinely fixed* rather than ticked,
      by mutation — and check whether the fix itself introduced a new instance of either class. Every
      regression in the originating repository's history arrived in a review fix, not in an apply.
@@ -210,6 +215,12 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
 
    - `docs` — a wrong or stale sentence in `README.md`, an example config, a code comment, or a
      invariants-index row. Correct it.
+   - `docs` — **an accepted ADR the shipped change made false.** Mark it per the decision-record
+     index: status `Accepted (amended)`, an amendment block naming the amending record, the index
+     row. This is bookkeeping on a record whose decision was already taken, not design authorship,
+     and the index's amendment process explicitly provides for it. It is on this route because the
+     alternative is a record that states something the code no longer does, which is the exact
+     failure the deleted spec corpus was deleted for.
    - `verification` where the fix is **test-only and additive** — a missing case, a mutation
      comment that was never recorded, a vacuous assertion to delete.
    - `cleanup` that touches only prose or comments.
@@ -240,7 +251,7 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
 
    **Route C — `ask`. Present it to the user and write nothing until they answer.**
 
-   Exactly two kinds of finding reach the user:
+   Three kinds of finding reach the user:
 
    - **A material finding about functionality whose resolution may need the plan changed** —
      it adds a mechanism, changes an interface, or refactors across a package boundary. This is
@@ -250,6 +261,13 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
    - **The proposal or design itself looks wrong** — not the code's fidelity to it, but the
      plan. Only the person who owns the objective can decide that, and no route this step
      controls can.
+   - **The change decided something durable that no record holds** — it meets the three tests and
+     neither the proposal nor the apply session captured it. Say what the decision was, what the
+     alternative was, and recommend `/wf-update` to add the task. **Do not write the record.** A
+     review may mark a record the change contradicted (route A) but may not author a new one: every
+     regression traceable to a review fix in the originating repository's history came from a review
+     authoring rather than reporting, and a decision record written by a reader reconstructing
+     intent is a guess with a date on it.
 
    **The resolution you recommend sets the route, not the most expensive one available.** A
    finding closable either by correcting a document or by adding a mechanism is `docs`, and it

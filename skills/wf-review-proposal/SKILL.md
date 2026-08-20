@@ -40,6 +40,11 @@ available changes.
 * Verifiability — does each task state something you can tell is done, and does behaviour the
   change adds get a test that would fail without it?
 * Codebase grounding — does it reuse existing patterns and fit current architecture?
+* Decision capture — does the plan record the decisions it makes, and mark the accepted records it
+  contradicts? This is the one obligation nobody downstream can discharge cheaply: `/wf-review` is
+  forbidden from authoring a record, and by then the reasoning is a week old. Judge it on the three
+  tests, and treat an unanswered question as a finding — the proposal is required to state that its
+  decisions are local when they are.
 
 **Steps**
 
@@ -130,7 +135,10 @@ available changes.
    - every task is a `- [ ] N.X` checkbox, so `changestat` counts it, and is grouped under a
      `## N.` heading that maps to one commit;
    - `changestat CHANGE=<name>` reports the task count you expect;
-   - no artifact cites `file:line` — durable artifacts cite symbols.
+   - no artifact cites `file:line` — durable artifacts cite symbols;
+   - the ADR question is answered either way: a task writing the record and its index row, a task
+     marking each record this change contradicts, or a stated position that the decisions are
+     local to this change.
 
 9. **Commit** — per the Review Proposal checkpoint:
 

@@ -103,7 +103,13 @@ available changes.
    - **Test each revision against the stated objective.** A task added because the objective
      cannot be met without it is this step working; add it. A task that pursues a **new**
      objective is scope creep: do not add it — return **`Rework`** and put the scope decision in
-     front of whoever owns the schedule via a fresh `/wf-propose`.
+     front of whoever owns the schedule. Say which way each answer goes: adopting the new
+     objective means a fresh `/wf-propose`, holding it means `/wf-update` drops that one task and
+     the reviewed plan stands.
+   - **A schedule answer is not a verdict.** If the plan is right and only its *timing* is in
+     question — another change holds a file it needs, a decision is pending elsewhere — that is
+     `Refine` with a `Precondition:`, not `Rework`. `Rework` says the plan is wrong, and returning
+     it for a scheduling fact discards a plan whose findings this step has just verified.
    - **Net task count is not the test.** An earlier rule made `Refine` unavailable whenever the
      revisions added more tasks than they removed, which forced a review that found one missing
      task to discard the whole reviewed plan. Count is not scope; the objective is.
@@ -119,6 +125,11 @@ available changes.
    - **EXISTING artifacts** (`proposal.md`, `design.md`, `tasks.md`): edit them **directly**.
      Then read every other artifact against each edit, in **any** direction — a revised task may
      require a revised design, not only the reverse — and correct what the edit made incoherent.
+   - **A precondition that is not `none` is written into `proposal.md`** as a status line at the
+     top: what must land first, and what clears it. The output block is a chat message and
+     survives one session; the artifact is what the next reader sees, and what `/wf-implement`
+     reads at its own step 2 before it seeds a single todo. A precondition announced and not
+     written down is parking with no record, which the next reader pays to rediscover.
    - **A missing whole artifact** (e.g. no `design.md` at all): write it if the change needs one,
      following `wf-propose-change`'s guidance for that artifact.
    - **A large multi-artifact reconciliation** may be delegated to the `wf-update-change`
@@ -146,15 +157,29 @@ available changes.
    git add "changes/<name>/"
    git commit -m "docs(changes): review-proposal <name>"
    ```
-   If the verdict is **Sound** (no edits needed), skip the commit and say so.
+   If the review made **no edits**, skip the commit and say so. The condition is the edits, not the
+   verdict's name: a `Sound` plan that is parked still records its precondition in `proposal.md`,
+   and that edit is committed like any other.
 
 **Verdict Scale**
 
-- **Sound** — solves the problem; design & tasks complete; ready for `/wf-implement`. No edits.
+The verdict judges the **plan**. Whether the plan can *start* is a separate fact about the world,
+carried by `Precondition:` in the output block — so "right, and waiting on another change" is
+`Refine` with a precondition recorded, and never `Rework`.
+
+- **Sound** — solves the problem; design & tasks complete; nothing to correct. Ready for
+  `/wf-implement` when `Precondition: none`; otherwise the plan is right and waits, and recording
+  the precondition is the only edit.
 - **Refine** — fundamentally right; the revisions correct it toward the stated objective. Applied
-  here, then re-validated. This is the expected verdict whenever anything was found.
-- **Rework** — wrong problem or approach, **or** closing a finding would change the change's
-  objective rather than complete it. Recommend a fresh `/wf-propose`.
+  here, then re-validated. This is the expected verdict whenever anything was found, **including
+  when the plan cannot start yet**: its findings are cheapest to close now, which is what this step
+  is for.
+- **Rework** — the plan itself is wrong, in one of two ways. Both put a decision in front of
+  whoever owns the schedule; they differ in what each answer implies.
+  - **The objective is wrong.** A fresh `/wf-propose` — there is nothing here worth keeping.
+  - **Closing a finding would change the objective.** State the finding and the choice. Adopt the
+    new objective and it is `/wf-propose`; hold the objective and it is `/wf-update`, dropping the
+    task that pursued a different one and keeping the rest of the reviewed plan.
 
 **Output On Success**
 
@@ -162,13 +187,15 @@ available changes.
 ## Proposal Review Complete: <change-name>
 
 **Verdict:** <verdict>
+**Precondition:** <none | what must land first, and what clears it>
 **Scope reviewed:** <whole proposal | task group N only>
 **Findings:** <n> (problem-fit, assumptions, tasks, grounding)
 **Tasks:** +<added> / -<removed>
 **Revisions:** <artifacts revised, or "none">
 **Artifacts:** coherent; tasks countable by changestat ✓
 
-<recommendation, e.g. "Ready for /wf-implement." or "Recommend /wf-propose restart.">
+<recommendation, e.g. "Ready for /wf-implement.", "Parked on <change>; /wf-implement once it
+ lands." or "Recommend /wf-propose restart.">
 ```
 
 **Guardrails (execution)**
@@ -179,6 +206,10 @@ available changes.
   and `tasks.md` directly; leave them coherent with each other.
 - **Ask only on ambiguity or objective.** Not on every edit, and not before adding a task that
   the stated objective requires.
+- **A precondition never defers a finding.** Parking a change is a scheduling act; leaving its plan
+  uncorrected is the failure the rule *"The proposal is corrected before apply, not after"* names.
+  The findings are closed here, whatever the plan is waiting on — by the time the precondition
+  clears, this reading of the code is weeks old and has to be redone to be trusted.
 - **A revision that pursues a new objective is `Rework`**, however few tasks it adds.
 - NEVER edit code.
 - Reuse existing behaviour and code patterns; do not invent parallels.

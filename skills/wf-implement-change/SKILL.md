@@ -103,10 +103,30 @@ Implement tasks from a change.
      `tasks.md` rule: the record itself carries the reasoning.
    - The task writes the record, adds its row to the decision-record index, and marks any accepted
      record the discovery contradicts — status, amendment block, index row, per that index.
+   - **A record *this change* wrote, falsified by a later group of the same change, is not an
+     amendment.** the amendment trigger is a sentence made false in an **accepted** record; one this
+     change authored two groups ago was never accepted and shipped, so marking it amended dates a
+     collision that never happened. It is an error in the change's own output: append a task to the
+     current group and correct the record. The shape to watch for is a Consequence describing the
+     mechanism as it stood mid-change — true when written, false one commit later once a following
+     group moved the authority it named.
    - **But if the decision changes the change's direction** — it reverses a recorded ADR, or
      abandons the approach `design.md` was reviewed on — stop and escalate to `/wf-update` +
      `/wf-review-proposal`. Authoring a new direction here is unreviewed design entering the tree,
      for the reason step 5(d) gives, and the escalation is cheap while the code is still warm.
+
+   **A deviation from the plan is recorded where the plan is, not in a review's section.** When
+   `design.md` or `tasks.md` prescribes something the code disproves, say so and write it under a
+   `### Deviations from the plan` heading in `tasks.md`, with the evidence that disproved it. Step 5's
+   `Deviations from review N's recommendations` is for a review's prescriptions and does not exist
+   until a review has run, so it was the wrong home and the only one named.
+
+   It has already been invented per-session for want of being named. One change opened such a
+   section holding two entries: a task whose prescribed mutation left the suite **green**, because
+   the run it named exercised the real implementation's contract only under a build tag the default
+   run does not set; and a task whose premise about which package called which function was simply
+   false. Each is what stops the next change re-litigating ground this one settled, and neither is
+   a review finding.
 
 5. **Definition of done for a review fix (`RN.X` tasks)**
 
@@ -152,7 +172,17 @@ Implement tasks from a change.
    - Tasks completed this session
    - Overall progress: "N/M tasks complete"
    - If all done: suggest archive
-   - If paused: explain why and wait for guidance
+   - If paused: **name which of step 4's four conditions fired**, then wait for guidance
+
+   "Explain why" was the earlier wording, and an explanation that does not have to be one of the
+   four is satisfied by any plausible sentence. Two arrived in one session. The first claimed the
+   groups just completed were the set the plan required be committed together — contradicted by the
+   `tasks.md` line the same session had written, which named one group more. The second claimed the
+   session was running low on context, which is not measurable from here at all. Both read as
+   workflow judgement and neither was one.
+
+   If none of the four fired, the session has not paused; it has stopped, and the next one pays the
+   re-entry: three artifacts re-read, every unticked task re-seeded, the same files opened again.
 
 7. **Addendum — recommended test plan** (run when the apply session concludes: all tasks complete, or you're wrapping up a partial session)
 
@@ -311,7 +341,12 @@ What would you like to do?
 - **`tasks.md` is authoritative; the todo list mirrors it.** One todo per unticked task, labelled
   with the task's identifier, exactly one `in_progress`. Reconcile the mirror at the group commit
   (step 4), which is the only step in the loop that cannot be skipped.
-- Keep going through tasks until done or blocked
+- **Keep going through tasks until done or blocked**, where blocked means one of step 4's four
+  conditions. Session length is not one of them, and neither is the pull of step 7: a report is the
+  shape of finished work, so reaching for it is attractive at any group boundary. **A limit you
+  cannot measure is not a limit you have** — there is no context meter here, so "running low" is an
+  impression, and reporting an impression as a constraint is the fault step 8 names about an unrun
+  `cover-gaps`, in the one place nobody can check it.
 - Always read the change's artifacts before starting
 - If task is ambiguous, pause and ask before implementing
 - If implementation reveals issues, pause and suggest artifact updates
@@ -325,8 +360,10 @@ What would you like to do?
   inside a review fix, stop and escalate via `/wf-update` + `/wf-review-proposal`.
 - **Never design in a review fix.** If an `RN.X` task calls for a new mechanism or an interface
   change, stop and escalate to `/wf-update` + `/wf-review-proposal`.
-- **Record every deviation with its evidence** in `Deviations from review N's recommendations`
-  in `tasks.md`. A silently-approximated fix reads as done at the next review.
+- **Record every deviation with its evidence** — a review's prescription under
+  `Deviations from review N's recommendations`, the plan's under `### Deviations from the plan`
+  (step 4). A silently-approximated fix reads as done at the next review, and a silently-corrected
+  plan makes the next change repeat the work that disproved it.
 - **A decision this session measured gets its record, as an appended task in the group that
   produced it** (step 4). The measurement behind a rejected alternative exists only during apply;
   leaving it uncaptured makes the next change repeat it. A decision that changes *direction*

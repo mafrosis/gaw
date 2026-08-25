@@ -23,6 +23,40 @@ const dir = mkdtempSync(join(tmpdir(), "tasks-todo-sync-"))
 const TASKS = join(dir, "tasks.md")
 const DESIGN = join(dir, "design.md")
 
+/*
+ * The per-request hook matches a candidate path on `changes/<name>/tasks.md`, so its fixtures have
+ * to live at that shape rather than loose in the temp directory. The archived one is the case that
+ * matters: it is entirely ticked, so comparing a live session against it would report every open
+ * todo as stale on every request for the rest of the session.
+ */
+const ACTIVE_DIR = join(dir, "changes", "mirror-fixture")
+const ARCHIVED_DIR = join(dir, "changes", "archive", "2026-01-01-old")
+const ACTIVE = join(ACTIVE_DIR, "tasks.md")
+const ARCHIVED = join(ARCHIVED_DIR, "tasks.md")
+const GONE = join(dir, "changes", "deleted-by-archive", "tasks.md")
+
+mkdirSync(ACTIVE_DIR, { recursive: true })
+mkdirSync(ARCHIVED_DIR, { recursive: true })
+
+/** Three tasks over two groups: 1.1 ticked, 1.2 and 2.1 not. */
+writeFileSync(
+  ACTIVE,
+  `# Tasks — mirror fixture
+
+## 1. Group one
+
+- [x] 1.1 done
+- [ ] 1.2 pending
+
+## 2. Group two
+
+- [ ] 2.1 later
+`,
+)
+
+/** An archived change: every box ticked, which is what makes it dangerous to compare against. */
+writeFileSync(ARCHIVED, "# Tasks — archived\n\n- [x] 1.1 done\n- [x] 1.2 also done\n- [x] 2.1 done\n")
+
 /**
  * Eight tasks over two groups: two ticked, three unticked, one of them under a star bullet and one
  * a review fix. The preamble's last line is prose that carries a bullet, a box *and* an identifier,
@@ -323,5 +357,292 @@ describe("a full-sized task list", () => {
    */
   test("a correctly seeded resumed session is silent", async () => {
     expect((await run([todo("8.3 do the thing")], BIG)).text).toBe(UNCHANGED)
+  })
+})
+
+/**
+ * The single pre-joined element `LLMRequestPrep.prepare` hands the hook. Observed on 115 of 115
+ * requests in a probe run, so a test that starts from an empty array would be testing
+ * a shape the hook is never given.
+ */
+const PRE_JOINED = "You are OpenCode. <env>...</env>"
+
+/**
+ * driver builds one plugin instance and exposes the three ways a session reaches it: a tool call
+ * that may carry a candidate path, a `todo.updated` event, and an LLM request.
+ *
+ * One instance per driver matters — the session cache lives inside the plugin factory, so sharing
+ * an instance across tests would let one test's session leak into the next.
+ */
+async function driver(seed: Todo[] = [], seedThrows = false) {
+  let queries = 0
+  const client = {
+    session: {
+      todo: async () => {
+        queries++
+        if (seedThrows) throw new Error("no todo endpoint")
+
+        return { data: seed }
+      },
+    },
+  }
+
+  const hooks = await TasksTodoSync({ client } as never)
+
+  return {
+    queries: () => queries,
+
+    /** A tool call the session made, from which a candidate `tasks.md` path may be recorded. */
+    saw: (tool: string, args: unknown, id = "ses_1") =>
+      hooks["tool.execute.after"]!(
+        { tool, sessionID: id, callID: "c", args } as never,
+        { title: "", output: "", metadata: {} },
+      ),
+
+    /** The harness telling the plugin this session's list changed. */
+    updated: (todos: Todo[], id = "ses_1") =>
+      hooks["event"]!({ event: { type: "todo.updated", properties: { sessionID: id, todos } } } as never),
+
+    /** One LLM request. Returns the system array the model would have been sent. */
+    request: async (id = "ses_1") => {
+      const system = [PRE_JOINED]
+      await hooks["experimental.chat.system.transform"]!({ sessionID: id, model: {} as never }, { system })
+
+      return system
+    },
+
+    /**
+     * One LLM request with no session at all, as `Agent.generate` makes.
+     *
+     * A separate method rather than `request(undefined)`, because a default parameter treats an
+     * explicit `undefined` as absent and substitutes the default — so `request(undefined)` silently
+     * ran as `ses_1` and the test passed while exercising the opposite of its name.
+     */
+    requestWithoutSession: async () => {
+      const system = [PRE_JOINED]
+      await hooks["experimental.chat.system.transform"]!({ model: {} as never } as never, { system })
+
+      return system
+    },
+  }
+}
+
+/** The mirror that agrees with the ACTIVE fixture: 1.1 done, the other two still to do. */
+const agreeing = () => [todo("1.1 done", "completed"), todo("1.2 pending"), todo("2.1 later")]
+
+describe("the drift it restates on every request", () => {
+  // Fails without the event hook: the session's todos are never cached, the lazy seed returns the
+  // empty default, and the labelled-mirror gate stops it before any comparison.
+  test("the cache is fed by todo.updated and keyed by session", async () => {
+    const d = await driver([])
+    await d.updated([todo("1.1 done"), todo("1.2 pending"), todo("2.1 later")])
+    await d.saw("read", { filePath: ACTIVE })
+    await d.saw("read", { filePath: ACTIVE }, "ses_2")
+
+    expect((await d.request("ses_1")).join("\n")).toContain("1.1")
+    // ses_2 was never published to, so its lookup falls to the seed, which is empty.
+    expect(await d.request("ses_2")).toEqual([PRE_JOINED])
+  })
+
+  /*
+   * Fails without the `seeded` flag: seeding on every request instead of once turns a per-request
+   * hook into a per-request HTTP call, in every session, for the life of the process.
+   */
+  test("a session the plugin never saw created is seeded exactly once", async () => {
+    const d = await driver([todo("1.1 done"), todo("1.2 pending"), todo("2.1 later")])
+    await d.saw("read", { filePath: ACTIVE })
+
+    expect((await d.request()).join("\n")).toContain("1.1")
+    expect((await d.request()).join("\n")).toContain("1.1")
+    expect(d.queries()).toBe(1)
+  })
+
+  // Fails without the labelled-mirror gate: an unrelated session's todos get compared to whatever
+  // task file it happened to read, and every unticked task is reported as absent.
+  test("a session whose todos are not a task mirror is left alone", async () => {
+    const d = await driver()
+    await d.updated([todo("Write the plugin"), todo("Verify it")])
+    await d.saw("read", { filePath: ACTIVE })
+
+    expect(await d.request()).toEqual([PRE_JOINED])
+  })
+
+  /*
+   * Fails without the candidate-path gate — and `queries` is the assertion that makes it fail.
+   *
+   * The first version of this test published the todos by event and asserted only that nothing was
+   * appended. It passed with the gate removed: the read was reached with `undefined`, threw, and the
+   * catch swallowed it, so the test was asserting the error handling under the name of the gate.
+   * Driving the lazy seed instead makes the gate observable, because without it the session pays a
+   * GET to establish todos it can never report on.
+   */
+  test("labelled todos with no task file in hand say nothing, and cost no lookup", async () => {
+    const d = await driver(agreeing())
+
+    expect(await d.request()).toEqual([PRE_JOINED])
+    expect(d.queries()).toBe(0)
+  })
+
+  // Fails without `bash` in the tools scanned, or without scanning the command text rather than a
+  // filePath argument. wf-implement-change step 2 says "read all of them" without saying how, and
+  // `cat changes/<name>/tasks.md` is a legal reading of that instruction.
+  test.each([
+    ["read", { filePath: ACTIVE }],
+    ["edit", { filePath: ACTIVE }],
+    ["write", { filePath: ACTIVE }],
+    ["bash", { command: `sed -n '1,5p' ${ACTIVE}` }],
+  ])("a candidate path is recorded from %s", async (tool, args) => {
+    const d = await driver()
+    await d.updated([todo("1.1 done"), todo("1.2 pending"), todo("2.1 later")])
+    await d.saw(tool, args)
+
+    expect((await d.request()).join("\n")).toContain("1.1")
+  })
+
+  /*
+   * Fails without the `changes/archive/` rejection. This is the permanent false positive: an
+   * archived task file is entirely ticked, so every open todo reads as `stale` on every request
+   * until the session ends. The plugin's own test fixtures read an archived file, and a review
+   * session reading one for reference is ordinary.
+   */
+  test("an archived task file is never a candidate", async () => {
+    const d = await driver()
+    await d.updated(agreeing())
+    await d.saw("read", { filePath: ARCHIVED })
+
+    expect(await d.request()).toEqual([PRE_JOINED])
+  })
+
+  /*
+   * Fails if the archived path is rejected by taking the last match and testing it, rather than by
+   * skipping archived matches while scanning backwards.
+   *
+   * Both readings agree when the two paths arrive in separate tool calls, which is why the test
+   * above cannot tell them apart. They diverge when one command names both and the archived one is
+   * last: "take the last, reject if archived" records nothing and the session goes blind, where
+   * skipping finds the active file behind it.
+   */
+  test("an active path is found behind an archived one in the same command", async () => {
+    const d = await driver()
+    await d.updated([todo("1.1 done"), todo("1.2 pending"), todo("2.1 later")])
+    await d.saw("bash", { command: `diff ${ACTIVE} ${ARCHIVED}` })
+
+    expect((await d.request()).join("\n")).toContain("todo still open: 1.1")
+  })
+
+  // Fails if a later archive path overwrites the candidate rather than being ignored: the session
+  // would start reporting against the archived file mid-run.
+  test("an archived path does not displace an active one already seen", async () => {
+    const d = await driver()
+    await d.updated(agreeing())
+    await d.saw("read", { filePath: ACTIVE })
+    await d.saw("read", { filePath: ARCHIVED })
+
+    // Still agreeing with the ACTIVE fixture, so still silent. Against ARCHIVED it would report
+    // 1.2 and 2.1 as stale.
+    expect(await d.request()).toEqual([PRE_JOINED])
+  })
+
+  /*
+   * Fails without the `stale + absent + early === 0` short circuit. This is the property the
+   * prompt cache depends on: nothing pushed means the array is byte-identical to what it is today,
+   * so a correct session pays no cache prefix at all.
+   */
+  test("agreement leaves the system array untouched", async () => {
+    const d = await driver()
+    await d.updated(agreeing())
+    await d.saw("read", { filePath: ACTIVE })
+
+    const system = await d.request()
+    expect(system).toEqual([PRE_JOINED])
+    expect(system).toHaveLength(1)
+  })
+
+  // Fails without the push: the disagreement is computed and then dropped.
+  test("a stale mirror is reported, and reported again on the next request", async () => {
+    const d = await driver()
+    await d.updated([todo("1.1 done"), todo("1.2 pending"), todo("2.1 later")])
+    await d.saw("read", { filePath: ACTIVE })
+
+    const first = await d.request()
+    expect(first).toHaveLength(2)
+    expect(first[1]).toContain("ticked in the file, todo still open: 1.1")
+
+    // Ignoring it is not a one-time decision — the obligation recurs until the list is fixed.
+    const second = await d.request()
+    expect(second).toHaveLength(2)
+    expect(second[1]).toContain("1.1")
+  })
+
+  /*
+   * The window `wf-implement-change` step 4 opens, pinned deliberately.
+   *
+   * The loop ticks the checkbox and marks the todo `completed` as two separate tool calls, and each
+   * step of a tool loop is its own LLM request — so between them the state is genuinely stale and
+   * this fires on a session doing everything right. Accepted rather than suppressed, because the
+   * block's instruction is exactly the call the loop is about to make. Suppressing it would need a
+   * settle delay, which is state this hook would then have to be trusted to get right.
+   *
+   * Fails if a settle delay or a "recently edited" exemption is ever added: this stops reporting.
+   */
+  test("the tick-then-todowrite window does report, by choice", async () => {
+    const d = await driver()
+    await d.updated([todo("1.1 done", "in_progress"), todo("1.2 pending"), todo("2.1 later")])
+    await d.saw("read", { filePath: ACTIVE })
+
+    expect((await d.request()).join("\n")).toContain("todo still open: 1.1")
+  })
+
+  /*
+   * `Agent.generate` triggers this hook with `{ model }` and no session, so this path is taken in
+   * practice. It is pinned as a behaviour rather than as a guard: the plugin has no separate
+   * no-session branch, because a request with no session can hold no recorded task file either, so
+   * the one path gate answers both. The comment on that gate records why splitting them would leave
+   * the second unprovable.
+   */
+  test("a request with no session says nothing", async () => {
+    const d = await driver(agreeing())
+    await d.saw("read", { filePath: ACTIVE })
+
+    expect(await d.requestWithoutSession()).toEqual([PRE_JOINED])
+    expect(d.queries()).toBe(0)
+  })
+
+  /*
+   * Fails without the try/catch around the read. /wf-archive moves the change with `git mv`, so a
+   * session that archives and then takes another turn holds a candidate path that no longer
+   * resolves.
+   */
+  test("a task file moved out from under the session says nothing", async () => {
+    const d = await driver()
+    await d.updated(agreeing())
+    await d.saw("read", { filePath: GONE })
+
+    expect(await d.request()).toEqual([PRE_JOINED])
+  })
+
+  /*
+   * Fails without the try/catch around the whole body — the highest-consequence guard here. The
+   * edit-time hook can only spoil one edit; this one sits on every request in every session, so an
+   * unhandled rejection breaks the conversation rather than the reminder.
+   */
+  test("a throwing lookup costs the report and not the request", async () => {
+    const d = await driver([], true)
+    await d.saw("read", { filePath: ACTIVE })
+
+    expect(await d.request()).toEqual([PRE_JOINED])
+  })
+
+  // Fails if the two blocks are worded alike: a reader cannot tell which hook fired, and the two
+  // report at different moments for different reasons.
+  test("its wording is distinguishable from the edit-time comment", async () => {
+    const d = await driver()
+    await d.updated([todo("1.1 done"), todo("1.2 pending"), todo("2.1 later")])
+    await d.saw("read", { filePath: ACTIVE })
+
+    const block = (await d.request())[1]!
+    // The edit-time hook emits an HTML comment into a tool result; this is system-prompt text.
+    expect(block).not.toContain("<!--")
+    expect(block).toContain("every request")
   })
 })

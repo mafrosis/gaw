@@ -69,7 +69,40 @@ const SKILL_TOOL = "skill"
  */
 const WORKFLOW_SKILL = /^wf-/
 
+/**
+ * A candidate task file, as it appears in a tool argument or a shell command.
+ *
+ * The edit-time hook matches on basename alone, deliberately, so it covers an archived change too —
+ * correct for reporting an edit. The per-request hook cannot afford that: an archived `tasks.md` is
+ * entirely ticked, so comparing a live session's open todos against it makes every one of them
+ * `stale` on every request for the rest of the session. So this wants the full shape, and archived
+ * paths are rejected separately below rather than left to the pattern by luck.
+ */
+const TASKS_PATH = /[^\s"'`;|&]*changes\/[^\s"'`;|&]*tasks\.md/g
+
+/** Where an archived change lives. Never a candidate; see above. */
+const ARCHIVED = "changes/archive/"
+
+/** The tools whose arguments can name a task file, and the argument each names it in. */
+const PATH_ARG = "filePath"
+const COMMAND_ARG = "command"
+
 type Tasks = { ticked: Set<string>; unticked: Set<string> }
+
+/** A todo reduced to what the comparison needs: its task identifier and whether it is done with. */
+type Mirrored = { id: string; closed: boolean }
+
+/** The three ways a mirror can disagree with its file. Absent means no disagreement. */
+type Drift = { stale: string[]; absent: string[]; early: string[] }
+
+/** What the plugin remembers about one session, for its whole process lifetime. */
+type Session = {
+  todos: { content: string; status: string }[]
+  /** Whether the list has been established, by event or by the one lazy GET. */
+  seeded: boolean
+  /** The last active `changes/<name>/tasks.md` this session was seen handling. */
+  tasksPath?: string
+}
 
 /**
  * checkbox reports the mark inside a leading task checkbox, mirroring changestat's `checkbox`
@@ -115,7 +148,136 @@ function parse(body: string): Tasks {
   return { ticked, unticked }
 }
 
+/**
+ * mirrored reduces a todo list to the entries that carry a task identifier.
+ *
+ * A todo without one has no join key, so it could only ever be reported as a phantom
+ * disagreement — and a list where *none* of them has one is not a mirror of any task file. That
+ * emptiness is the gate both comparing hooks lean on to stay quiet in a session tracking something
+ * other than a change.
+ */
+function mirrored(todos: { content: string; status: string }[]): Mirrored[] {
+  return todos.flatMap((t) => {
+    const id = t.content.match(TASK_ID)?.[1]
+
+    return id ? [{ id, closed: CLOSED.has(t.status) }] : []
+  })
+}
+
+/**
+ * compare names the three ways a mirror can disagree with its file, or reports nothing when they
+ * agree. Silence on agreement is the whole design: a reminder that fires when nothing is wrong
+ * teaches the reader to skip it, and then it is worse than nothing.
+ */
+function compare(tasks: Tasks, mirror: Mirrored[]): Drift | undefined {
+  const open = new Set(mirror.filter((t) => !t.closed).map((t) => t.id))
+  const closed = new Set(mirror.filter((t) => t.closed).map((t) => t.id))
+
+  // The reported case: the checkbox moved and the todo did not.
+  const stale = [...open].filter((id) => tasks.ticked.has(id))
+  // The mirror is missing a task, so the sidebar understates what is left.
+  const absent = [...tasks.unticked].filter((id) => !open.has(id) && !closed.has(id))
+  // The todo moved and the checkbox did not, which also means the group is not committable.
+  const early = [...closed].filter((id) => tasks.unticked.has(id))
+
+  if (stale.length + absent.length + early.length === 0) return undefined
+
+  return { stale, absent, early }
+}
+
+/** describe renders a drift as one line per disagreeing kind, indented for reading. */
+function describe(drift: Drift): string[] {
+  const lines: string[] = []
+
+  if (drift.stale.length > 0) lines.push(`  ticked in the file, todo still open: ${drift.stale.join(", ")}`)
+  if (drift.absent.length > 0) lines.push(`  unticked in the file, no todo at all: ${drift.absent.join(", ")}`)
+  if (drift.early.length > 0) lines.push(`  unticked in the file, todo already closed: ${drift.early.join(", ")}`)
+
+  return lines
+}
+
+/**
+ * candidate reports the task file named in a piece of text, or nothing.
+ *
+ * The last match wins, so a session that moves from one change to another compares against the one
+ * it is handling now. An archived path is never returned, and because it is skipped rather than
+ * returned-and-rejected, it cannot displace an active path already recorded.
+ */
+function candidate(text: string): string | undefined {
+  const found = text.match(TASKS_PATH)
+  if (!found) return undefined
+
+  for (const path of found.reverse()) {
+    if (!path.includes(ARCHIVED)) return path
+  }
+
+  return undefined
+}
+
 export const TasksTodoSync: Plugin = async ({ client }) => {
+  /**
+   * What the plugin knows per session, for the lifetime of the opencode process.
+   *
+   * Keyed by `sessionID`, so a subagent — which fires these hooks under its own id — is a separate
+   * entry and cannot be confused with its parent. Each entry is a handful of strings, and the map
+   * is bounded by the process, so nothing prunes it.
+   */
+  const sessions = new Map<string, Session>()
+
+  const of = (id: string): Session => {
+    const existing = sessions.get(id)
+    if (existing) return existing
+
+    const fresh: Session = { todos: [], seeded: false }
+    sessions.set(id, fresh)
+
+    return fresh
+  }
+
+  /**
+   * todosFor answers from memory, and reaches for the network once per session at most.
+   *
+   * The `todo.updated` event carries the full list, so a session whose todos were created while
+   * this plugin was loaded costs nothing. The GET exists for the other case — a session resumed
+   * with todos the plugin never saw created, which is what an opencode restart produces — and
+   * `seeded` is set whatever the call returns, so a session with no todos does not re-ask on every
+   * request for the rest of the process.
+   *
+   * It resolves the session itself rather than taking one, which is what makes the caller's gate
+   * provable: removing that gate reaches this function, which creates an entry and spends a GET,
+   * and a test counting lookups can see the difference. Handed an already-resolved session, the
+   * gate's removal would instead fault on `undefined` and be swallowed by the caller's catch.
+   */
+  async function todosFor(id: string) {
+    const session = of(id)
+    if (session.seeded) return session.todos
+
+    session.seeded = true
+    session.todos = (await client.session.todo({ path: { id } })).data ?? []
+
+    return session.todos
+  }
+
+
+  /**
+   * recordCandidate notes a task file this session is handling, from a tool's own arguments.
+   *
+   * Both a path argument and a shell command are scanned, because `wf-implement-change` step 2 says
+   * to read the change's artifacts without saying with which tool, and `cat changes/<n>/tasks.md`
+   * is a legal reading of that. `changestat CHANGE=<n>` names no path and so seeds nothing; that
+   * residual gap is a missed report rather than a wrong one, and the skill-load hook still fires
+   * for it.
+   */
+  function recordCandidate(tool: string, args: Record<string, unknown> | undefined, id: string) {
+    const text = args?.[PATH_ARG] ?? args?.[COMMAND_ARG]
+    if (typeof text !== "string") return
+
+    const found = candidate(text)
+    if (!found) return
+
+    of(id).tasksPath = found
+  }
+
   /**
    * reportSkillLoad states this session's todo list back to the model, inside the skill text it
    * just asked for.
@@ -170,7 +332,84 @@ export const TasksTodoSync: Plugin = async ({ client }) => {
   }
 
   return {
+    /**
+     * The list changed, so the cached copy is replaced. This is what keeps the per-request hook off
+     * the network in the steady state: the event carries the whole list, not a delta.
+     */
+    event: async ({ event }) => {
+      if (event.type !== "todo.updated") return
+
+      const { sessionID, todos } = event.properties
+      const session = of(sessionID)
+
+      session.todos = todos
+      session.seeded = true
+    },
+
+    /**
+     * Restate the disagreement on every request until it is fixed.
+     *
+     * The edit-time hook below reports at the instant drift is *created*, which is the cheapest
+     * moment to fix it, and it reports once. This reports for as long as the session is *wrong*, so
+     * ignoring it stops being a one-time decision. The two are kept distinct in wording.
+     *
+     * Silence when the mirror agrees is what makes it affordable: nothing is pushed, so the array
+     * is byte-identical to what it is today and the prompt cache sees no change.
+     */
+    "experimental.chat.system.transform": async (input, output) => {
+      try {
+        /*
+         * One gate, not two. `Agent.generate` triggers this hook with no session at all, and a
+         * request with no session can hold no recorded task file either — so "no session" and "no
+         * candidate path" are one outcome by construction, and writing them as two guards would
+         * leave the second unprovable, since with either removed the read is reached with
+         * `undefined` and the catch below swallows it.
+         *
+         * The path is checked before the todos are established because it is a pure map lookup
+         * where establishing the todos may cost the one lazy GET. A session with no task file in
+         * hand can never report anything, so paying the network to find that out would be waste —
+         * and that saving is what makes this gate provable: remove it and `todosFor` spends a GET
+         * a test can count. The conditional lookup is a narrowing rather than a third guard;
+         * `sessions.get(undefined)` would answer the same, just less plainly.
+         */
+        const tasksPath = input.sessionID ? sessions.get(input.sessionID)?.tasksPath : undefined
+        if (!tasksPath) return
+
+        const mirror = mirrored(await todosFor(input.sessionID!))
+        if (mirror.length === 0) return
+
+        /*
+         * No "is this file empty" guard here, unlike the edit branch. There it returns before the
+         * todo lookup and so saves a call; here the todos are already in hand, and an empty file
+         * yields an empty drift from `compare` anyway — so the guard would be unobservable, and an
+         * unobservable guard cannot be proven by a test that fails without it.
+         */
+        const tasks = parse(await readFile(tasksPath, "utf8"))
+
+        const drift = compare(tasks, mirror)
+        if (!drift) return
+
+        output.system.push(
+          [
+            `tasks-todo-sync: this session's todo list disagrees with ${tasksPath}.`,
+            ...describe(drift),
+            "The file is authoritative. Call todowrite to re-seed the list from it.",
+            "This is restated on every request until it agrees, so it is not a one-time notice.",
+          ].join("\n"),
+        )
+      } catch {
+        /*
+         * The highest-consequence guard in this plugin. The edit-time hook can only spoil one edit;
+         * this one sits on every request in every session, so an unhandled rejection here breaks
+         * the conversation rather than a reminder. A moved task file — which /wf-archive's `git mv`
+         * produces — reaches this path routinely.
+         */
+      }
+    },
+
     "tool.execute.after": async (input, output) => {
+      recordCandidate(input.tool, input.args, input.sessionID)
+
       if (input.tool === SKILL_TOOL) return await reportSkillLoad(input, output)
 
       try {
@@ -191,37 +430,17 @@ export const TasksTodoSync: Plugin = async ({ client }) => {
          * `/wf-propose` writing the list in the first place, `/wf-review` recording findings, or a
          * session whose todos are about the tooling rather than the change.
          */
-        const mirror = todos.flatMap((t) => {
-          const id = t.content.match(TASK_ID)?.[1]
-
-          return id ? [{ id, closed: CLOSED.has(t.status) }] : []
-        })
-
+        const mirror = mirrored(todos)
         if (mirror.length === 0) return
 
-        const open = new Set(mirror.filter((t) => !t.closed).map((t) => t.id))
-        const closed = new Set(mirror.filter((t) => t.closed).map((t) => t.id))
-
-        // The reported case: the checkbox moved and the todo did not.
-        const stale = [...open].filter((id) => tasks.ticked.has(id))
-        // The mirror is missing a task, so the sidebar understates what is left.
-        const absent = [...tasks.unticked].filter((id) => !open.has(id) && !closed.has(id))
-        // The todo moved and the checkbox did not, which also means the group is not committable.
-        const early = [...closed].filter((id) => tasks.unticked.has(id))
-
-        if (stale.length + absent.length + early.length === 0) return
+        const drift = compare(tasks, mirror)
+        if (!drift) return
 
         const lines = [
           `\n\n<!-- tasks-todo-sync: ${basename(path)} and this session's todo list disagree.`,
-        ]
-
-        if (stale.length > 0) lines.push(`  ticked in the file, todo still open: ${stale.join(", ")}`)
-        if (absent.length > 0) lines.push(`  unticked in the file, no todo at all: ${absent.join(", ")}`)
-        if (early.length > 0) lines.push(`  unticked in the file, todo already closed: ${early.join(", ")}`)
-
-        lines.push(
+          ...describe(drift),
           "  The file is authoritative. Call todowrite to re-seed the list from it before the group commit. -->",
-        )
+        ]
 
         output.output += lines.join("\n")
       } catch {

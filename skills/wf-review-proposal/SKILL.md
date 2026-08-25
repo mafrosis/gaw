@@ -56,6 +56,13 @@ available changes.
 
 2. **Pre-flight — establish what is still unbuilt**
 
+   **Clear the todo list first.** A list you find populated at this point is the previous session's
+   — this step has no `tasks.md` of its own to mirror until it has selected a change, and the plan it
+   is about to review is one nobody has started. Call **todowrite** with an empty list, or re-seed it
+   from *this* change's `tasks.md` once step 3 has read it. Working on top of an inherited list is
+   how a review of one change reports progress against another; the plugin states the list back to
+   you as this skill loads, so you have already been shown what you inherited.
+
    ```bash
    changestat CHANGE=<name>
    ```

@@ -33,6 +33,11 @@ ambiguous you MUST ask rather than guess.
    Report the count. Incomplete tasks are a warning, not a block — confirm with the user
    before proceeding.
 
+   **Clear the todo list as the last act of the archive.** The `git mv` moves `tasks.md` under
+   `changes/archive/`, so every todo in the list now mirrors a file that no longer exists at the path
+   it was read from. An empty list is the correct state for a finished change, and leaving the old one
+   behind is what hands the next session a populated, plausible list belonging to work that is done.
+
    Remember what a ticked box is: a claim that the work was done, not evidence of it. The
    review gate below is what judges the work.
 

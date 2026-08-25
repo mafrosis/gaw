@@ -47,6 +47,9 @@ Implement tasks from a change.
 
    The label matters mechanically, not just for reading: `.opencode/plugins/tasks-todo-sync.ts`
    joins a todo to its task on that leading identifier, and a todo without one is invisible to it.
+   That plugin also states this list back to you as this skill loads, and restates any disagreement
+   with `tasks.md` on every request until it agrees — so the state is in front of you rather than
+   remembered.
 
    `tasks.md` is the durable record; the todo list is a session mirror of it. Where they
    disagree, `tasks.md` wins and the todo list is re-seeded from it. Never invent a todo that has
@@ -79,8 +82,9 @@ Implement tasks from a change.
    sidebar is stale. Reconciling here puts the mirror on the one step in the loop that cannot be
    skipped.
 
-   `tasks-todo-sync` reports the disagreement in the result of the edit that caused it, so if it
-   said nothing, there is nothing to reconcile.
+   `tasks-todo-sync` reports the disagreement in the result of the edit that caused it, and again in
+   every request that follows while it persists, so if neither has said anything, there is nothing to
+   reconcile.
 
    **Pause if:**
    - Task is unclear → ask for clarification

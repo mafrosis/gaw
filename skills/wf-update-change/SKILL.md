@@ -23,6 +23,11 @@ ambiguous you MUST ask rather than guess.
    possibly `review.md` and `test_plan.md`. Revise only files that already exist; if an
    artifact is missing, say so and point at `/wf-propose` rather than creating it here.
 
+   **A revision to `tasks.md` obliges a re-seed of the todo list**, from the file and in file order,
+   before this step reports. `tasks.md` is authoritative and the list mirrors it, so renumbering,
+   splitting or dropping a task leaves any list held by this session or the one that resumes after it
+   describing tasks that no longer exist. Re-seed from the file; never edit the file to match a list.
+
 3. **Understand the request.**
    - A specific revision ("the design now uses X") is the starting edit.
    - A bare "update" or "make this coherent" is a coherence review: read the artifacts

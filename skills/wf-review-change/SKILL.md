@@ -148,6 +148,11 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
    if earlier rounds exist. Read the project's own standards, and the decision records that the
    change touches.
 
+   **Re-seed the todo list from this change's `tasks.md`**, including its `RN.X` review-fix entries,
+   and discard whatever the session inherited. `tasks.md` is authoritative here as everywhere. The
+   list mirrors *tasks*, so `review.md` is not tracked by it — a round's findings are not todos, and
+   adding them makes the sidebar disagree with the file on the next `changestat` count.
+
    ```bash
    changestat CHANGE=<name>
    ```

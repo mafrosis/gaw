@@ -172,6 +172,99 @@ describe("the silence, which is the whole design", () => {
   })
 })
 
+/**
+ * runSkill drives the skill-load hook and reports the skill text the model would have seen.
+ *
+ * `wf-implement-change` is the default name because it is the skill whose failure prompted this:
+ * a session that loads it and starts on the previous session's list.
+ */
+async function runSkill(todos: Todo[], name = "wf-implement-change", throws = false) {
+  let queried = false
+  const client = {
+    session: {
+      todo: async () => {
+        queried = true
+        if (throws) throw new Error("no todo endpoint")
+
+        return { data: todos }
+      },
+    },
+  }
+
+  const hooks = await TasksTodoSync({ client } as never)
+  const output = { title: "", output: UNCHANGED, metadata: {} }
+
+  await hooks["tool.execute.after"]!({ tool: "skill", sessionID: "ses_1", callID: "c1", args: { name } }, output)
+
+  return { text: output.output, queried }
+}
+
+describe("the list it states when a workflow skill loads", () => {
+  // Fails without the skill branch in tool.execute.after: nothing is appended at all.
+  test("every todo is stated with its status", async () => {
+    const { text } = await runSkill(inSync())
+
+    expect(text).toContain("1.1 done thing")
+    expect(text).toContain("completed")
+    expect(text).toContain("2.1 later")
+    expect(text).toContain("pending")
+  })
+
+  /*
+   * Fails without the empty-list branch: with `todos.length === 0` falling through to the loop,
+   * the block is emitted with no lines and says nothing a reader can act on.
+   *
+   * Silence is wrong here, which is the one place this hook differs from the edit-time one. An
+   * empty list is an obligation for /wf-implement (step 3 has not run) and correct for
+   * /wf-archive (the change is gone), and the plugin cannot tell which — so it reports the fact
+   * and lets the reader judge.
+   */
+  test("an empty list is stated as empty rather than passed over", async () => {
+    const { text, queried } = await runSkill([])
+
+    expect(text).not.toBe(UNCHANGED)
+    expect(text).toContain("empty")
+    expect(queried).toBe(true)
+  })
+
+  // Fails without the WORKFLOW_SKILL prefix test — and the `queried` assertion is the half that
+  // matters: ordering the guard after the lookup would still append nothing while costing an
+  // HTTP call on every unrelated skill load.
+  test("a skill outside the workflow is not a workflow skill", async () => {
+    const { text, queried } = await runSkill(inSync(), "ast-grep")
+
+    expect(text).toBe(UNCHANGED)
+    expect(queried).toBe(false)
+  })
+
+  /*
+   * Fails if the skill branch reuses the edit branch's TASK_ID filter.
+   *
+   * At skill load there is no task file to join against, so an identifier has nothing to be a join
+   * key *for* — and an unlabelled todo is precisely what a stale list looks like when the previous
+   * session was doing something other than applying. Filtering here would hide the case the hook
+   * exists to surface.
+   */
+  test("a todo carrying no task identifier is stated too", async () => {
+    const { text } = await runSkill([todo("Write the plugin"), todo("Verify it", "completed")])
+
+    expect(text).toContain("Write the plugin")
+    expect(text).toContain("Verify it")
+  })
+
+  // Fails without the skill branch's own try/catch: the rejection propagates and the skill load
+  // fails, costing the model the instructions it just asked for.
+  test("a failing todo lookup costs the report and not the skill", async () => {
+    expect((await runSkill(inSync(), "wf-implement-change", true)).text).toBe(UNCHANGED)
+  })
+
+  // Fails without the prefix anchor (`/^wf-/` → `/wf-/`): a skill merely containing the prefix
+  // would be treated as a workflow skill.
+  test("the prefix is anchored at the start of the name", async () => {
+    expect((await runSkill(inSync(), "not-wf-implement-change")).text).toBe(UNCHANGED)
+  })
+})
+
 describe("a full-sized task list", () => {
   /*
    * 68 tasks over 8 groups, with continuation lines, backticks and em-dashes, and exactly one task

@@ -59,6 +59,16 @@ const TASK_ID = /^(R?\d+(?:\.\d+)+)\b/i
 /** A todo is closed when it will not be worked again; `cancelled` counts, since nothing is pending. */
 const CLOSED = new Set(["completed", "cancelled"])
 
+/** The native tool that loads a skill. Its parameter schema is a single `name`. */
+const SKILL_TOOL = "skill"
+
+/**
+ * A workflow skill. Matched on the prefix rather than a list of five names, so a sixth workflow
+ * skill is in scope the moment it exists — the property is held by the match, not by anybody
+ * remembering to extend a list. Anchored, so `not-wf-thing` is not a workflow skill.
+ */
+const WORKFLOW_SKILL = /^wf-/
+
 type Tasks = { ticked: Set<string>; unticked: Set<string> }
 
 /**
@@ -106,8 +116,63 @@ function parse(body: string): Tasks {
 }
 
 export const TasksTodoSync: Plugin = async ({ client }) => {
+  /**
+   * reportSkillLoad states this session's todo list back to the model, inside the skill text it
+   * just asked for.
+   *
+   * It deliberately does **not** judge. It cannot: at skill load no change has been selected, so
+   * there is no `tasks.md` to compare against, and guessing which of the active changes a list
+   * belongs to would be a heuristic wrong in the case that matters. Stating the contents is
+   * enough — a resumed session recognises its own list, and a session inheriting one change's
+   * list while being asked about another sees the mismatch immediately. The reader does the
+   * judging because the reader is the only party with the information.
+   *
+   * Every todo is stated, labelled or not. The edit-time branch below filters on a task
+   * identifier because there it is a *join key*; here there is nothing to join to, and an
+   * unlabelled todo is exactly what a stale list looks like when the previous session was doing
+   * something other than applying.
+   */
+  async function reportSkillLoad(
+    input: { sessionID: string; args?: { name?: unknown } },
+    output: { output: string },
+  ) {
+    try {
+      const name = input.args?.name
+      if (typeof name !== "string" || !WORKFLOW_SKILL.test(name)) return
+
+      const todos = (await client.session.todo({ path: { id: input.sessionID } })).data ?? []
+
+      const lines = [`\n\n<!-- tasks-todo-sync: this session's todo list, as ${name} loaded.`]
+
+      if (todos.length === 0) {
+        lines.push("  The list is empty.")
+        lines.push(
+          "  For /wf-implement that is an obligation — step 3 seeds it from tasks.md before any code.",
+        )
+        lines.push("  For /wf-archive it is correct. This hook does not know which; you do.")
+      } else {
+        for (const t of todos) lines.push(`  [${t.status}] ${t.content}`)
+        lines.push(
+          "  If this list is not the one this session should be working, re-seed it from tasks.md.",
+        )
+      }
+
+      lines.push("-->")
+
+      output.output += lines.join("\n")
+    } catch {
+      /*
+       * Never let this break a skill load. The skill text is what the model asked for and this is
+       * a progress display bolted onto it, so a session with no todo endpoint, or a bug above,
+       * costs the report and nothing else.
+       */
+    }
+  }
+
   return {
     "tool.execute.after": async (input, output) => {
+      if (input.tool === SKILL_TOOL) return await reportSkillLoad(input, output)
+
       try {
         if (!EDIT_TOOLS.has(input.tool)) return
 

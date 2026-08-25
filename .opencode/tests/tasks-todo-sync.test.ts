@@ -484,29 +484,74 @@ describe("the drift it restates on every request", () => {
   })
 
   /*
-   * Fails without `typeof text !== "string"` in recordCandidate: a non-string argument reaches
-   * `candidate`, `text.match` throws, and because `recordCandidate` is called *outside*
-   * `tool.execute.after`'s try, the throw escapes the hook and fails the tool call itself rather
-   * than costing the reminder. Both this guard and the one below are therefore load-bearing for the
-   * tool call, not just for the report.
+   * `typeof text !== "string"` in recordCandidate is a **narrowing, not a guard**, and this test
+   * pins the behaviour rather than proving the line.
+   *
+   * It was a guard until the whole hook body was wrapped: a non-string argument then reached
+   * `candidate`, `text.match` threw, and because the scraper ran ahead of the try the throw failed
+   * the tool call. Wrapped, the throw is swallowed and the outcome is identical either way — no
+   * candidate recorded, no report — so no test can fail without the line. It stays because
+   * `candidate` takes a `string`, and it is documented here rather than defended by a vacuous
+   * assertion. Same treatment as the `sessionID` narrowing in the transform hook.
    */
   test("a non-string path argument is ignored rather than thrown on", async () => {
     const d = await driver()
     await d.updated(agreeing())
 
-    expect(d.saw("read", { filePath: 123 })).resolves.toBeUndefined()
+    await expect(d.saw("read", { filePath: 123 })).resolves.toBeUndefined()
   })
 
   /*
    * Fails without `if (!found) return undefined` in candidate: `String.match` answers null when
-   * nothing matches, `null.reverse()` throws, and it escapes the hook for the same reason as above.
-   * Every ordinary file a session reads takes this path.
+   * nothing matches, `null.reverse()` throws, and since the scraper is the first statement inside
+   * the hook's try that throw abandons the rest of the body — so the edit-time drift report is
+   * silently suppressed for the very edit that caused the drift.
+   *
+   * Every ordinary file a session touches takes this path, and this is the named test for it: the
+   * 12 edit-time tests also go red, but only because their fixture path happens to carry no
+   * `changes/` segment, which is incidental rather than a statement of the claim.
    */
-  test("a path naming no task file is ignored rather than thrown on", async () => {
+  test("an ordinary path records no candidate and does not suppress the edit-time report", async () => {
     const d = await driver()
     await d.updated(agreeing())
+    await expect(d.saw("read", { filePath: "/Users/x/project/src/main.go" })).resolves.toBeUndefined()
 
-    expect(d.saw("read", { filePath: "/Users/x/project/src/main.go" })).resolves.toBeUndefined()
+    // No candidate was recorded, so the per-request hook stays silent...
+    expect(await d.request()).toEqual([PRE_JOINED])
+    // ...and the edit-time hook still reports on a real task file.
+    expect((await run(seeded(), TASKS)).text).toContain("ticked in the file, todo still open")
+  })
+
+  /*
+   * Fails without the SCAN_TOOLS restriction: any tool carrying a matching `filePath` sets the
+   * candidate. A `grep` or `glob` call is *searching for* a task file rather than handling one, so
+   * letting it set the candidate points the comparison at a file the session never opened —
+   * plausibly a different change's.
+   */
+  test("a tool outside the scanned set does not set the candidate", async () => {
+    const d = await driver()
+    await d.updated([todo("1.1 done"), todo("1.2 pending"), todo("2.1 later")])
+    await d.saw("grep", { filePath: ACTIVE })
+
+    expect(await d.request()).toEqual([PRE_JOINED])
+  })
+
+  /*
+   * Fails without the try wrapping recordCandidate.
+   *
+   * A throwing property getter is the only way to reach a throw inside the scraper now that its two
+   * internal checks hold, and it is what makes the wrapper provable rather than assumed. Unwrapped,
+   * the scraper ran ahead of the try, so this rejected and the tool call failed with it.
+   */
+  test("a hostile argument costs the reminder and not the tool call", async () => {
+    const d = await driver()
+    const hostile = {
+      get filePath(): string {
+        throw new Error("boom")
+      },
+    }
+
+    await expect(d.saw("read", hostile)).resolves.toBeUndefined()
   })
 
   // Fails without the labelled-mirror gate: an unrelated session's todos get compared to whatever

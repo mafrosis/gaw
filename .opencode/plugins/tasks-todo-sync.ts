@@ -87,6 +87,18 @@ const ARCHIVED = "changes/archive/"
 const PATH_ARG = "filePath"
 const COMMAND_ARG = "command"
 
+/**
+ * The tools whose arguments are scanned for a candidate task file.
+ *
+ * `read`, `edit` and `write` name it in `filePath`; `bash` can name it anywhere in `command`,
+ * because `wf-implement-change` step 2 says to read the change's artifacts without saying with
+ * which tool and `cat changes/<n>/tasks.md` is a legal reading of that. Every other tool is out of
+ * scope: a `grep` or `glob` call carrying a matching `filePath` is searching for a task file, not
+ * handling one, and letting it set the candidate would point the comparison at a file the session
+ * never opened.
+ */
+const SCAN_TOOLS = new Set(["read", "edit", "write", "bash"])
+
 type Tasks = { ticked: Set<string>; unticked: Set<string> }
 
 /** A todo reduced to what the comparison needs: its task identifier and whether it is done with. */
@@ -258,7 +270,6 @@ export const TasksTodoSync: Plugin = async ({ client }) => {
     return session.todos
   }
 
-
   /**
    * recordCandidate notes a task file this session is handling, from a tool's own arguments.
    *
@@ -269,6 +280,8 @@ export const TasksTodoSync: Plugin = async ({ client }) => {
    * for it.
    */
   function recordCandidate(tool: string, args: Record<string, unknown> | undefined, id: string) {
+    if (!SCAN_TOOLS.has(tool)) return
+
     const text = args?.[PATH_ARG] ?? args?.[COMMAND_ARG]
     if (typeof text !== "string") return
 
@@ -408,11 +421,11 @@ export const TasksTodoSync: Plugin = async ({ client }) => {
     },
 
     "tool.execute.after": async (input, output) => {
-      recordCandidate(input.tool, input.args, input.sessionID)
-
-      if (input.tool === SKILL_TOOL) return await reportSkillLoad(input, output)
-
       try {
+        recordCandidate(input.tool, input.args, input.sessionID)
+
+        if (input.tool === SKILL_TOOL) return await reportSkillLoad(input, output)
+
         if (!EDIT_TOOLS.has(input.tool)) return
 
         const path = input.args?.filePath
@@ -445,9 +458,14 @@ export const TasksTodoSync: Plugin = async ({ client }) => {
         output.output += lines.join("\n")
       } catch {
         /*
-         * Never let this break an edit. It is a progress display for a human, and the edit it is
-         * attached to is the work — so a malformed task list, a session with no todo endpoint, or a
-         * bug in the parsing above costs the reminder and nothing else.
+         * Never let this break the tool call. It is a progress display for a human, and the edit or
+         * read it is attached to is the work — so a malformed task list, a session with no todo
+         * endpoint, a hostile argument reaching the path scraper, or a bug in the parsing above
+         * costs the reminder and nothing else.
+         *
+         * This wraps the *whole* body, including `recordCandidate`. The first implementation did
+         * not: the scraper ran ahead of the try, so a throw in it failed the tool call rather than
+         * the reminder.
          */
       }
     },

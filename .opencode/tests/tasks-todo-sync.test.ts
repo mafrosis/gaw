@@ -403,6 +403,10 @@ async function driver(seed: Todo[] = [], seedThrows = false) {
     updated: (todos: Todo[], id = "ses_1") =>
       hooks["event"]!({ event: { type: "todo.updated", properties: { sessionID: id, todos } } } as never),
 
+    /** Any other event the harness publishes. Most carry a `sessionID` and no todos at all. */
+    emit: (type: string, properties: Record<string, unknown>) =>
+      hooks["event"]!({ event: { type, properties } } as never),
+
     /** One LLM request. Returns the system array the model would have been sent. */
     request: async (id = "ses_1") => {
       const system = [PRE_JOINED]
@@ -455,6 +459,54 @@ describe("the drift it restates on every request", () => {
     expect((await d.request()).join("\n")).toContain("1.1")
     expect((await d.request()).join("\n")).toContain("1.1")
     expect(d.queries()).toBe(1)
+  })
+
+  /*
+   * Fails without the event-type gate: `// if (event.type !== "todo.updated") return`, and the
+   * suite stays green without it — which is why this test exists.
+   *
+   * The gate is not a filter for tidiness. Most published events carry a `sessionID` and no todos
+   * — `session.diff`, `session.status`, `message.updated`, `permission.asked`. Without the gate
+   * one of those destructures `todos` as `undefined` and stores it against the *real* session with
+   * `seeded = true`, so the next request calls `mirrored(undefined)`, throws inside the transform
+   * hook's try, and is swallowed. `seeded` is already true, so nothing ever re-fetches: the
+   * session goes permanently silent for the rest of the process, with a green suite.
+   *
+   * That is the failure this plugin exists to prevent — drift persisting across several requests
+   * with no report — reachable from the first unrelated event any session publishes.
+   */
+  test("an event that is not todo.updated does not poison the cache", async () => {
+    const d = await driver([todo("1.1 done"), todo("1.2 pending"), todo("2.1 later")])
+    await d.saw("read", { filePath: ACTIVE })
+    await d.emit("session.diff", { sessionID: "ses_1", diff: [] })
+
+    expect((await d.request()).join("\n")).toContain("todo still open: 1.1")
+  })
+
+  /*
+   * Fails without `typeof text !== "string"` in recordCandidate: a non-string argument reaches
+   * `candidate`, `text.match` throws, and because `recordCandidate` is called *outside*
+   * `tool.execute.after`'s try, the throw escapes the hook and fails the tool call itself rather
+   * than costing the reminder. Both this guard and the one below are therefore load-bearing for the
+   * tool call, not just for the report.
+   */
+  test("a non-string path argument is ignored rather than thrown on", async () => {
+    const d = await driver()
+    await d.updated(agreeing())
+
+    expect(d.saw("read", { filePath: 123 })).resolves.toBeUndefined()
+  })
+
+  /*
+   * Fails without `if (!found) return undefined` in candidate: `String.match` answers null when
+   * nothing matches, `null.reverse()` throws, and it escapes the hook for the same reason as above.
+   * Every ordinary file a session reads takes this path.
+   */
+  test("a path naming no task file is ignored rather than thrown on", async () => {
+    const d = await driver()
+    await d.updated(agreeing())
+
+    expect(d.saw("read", { filePath: "/Users/x/project/src/main.go" })).resolves.toBeUndefined()
   })
 
   // Fails without the labelled-mirror gate: an unrelated session's todos get compared to whatever

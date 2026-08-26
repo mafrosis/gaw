@@ -10,14 +10,19 @@ metadata:
 
 Revise a change's existing planning artifacts and keep them coherent. Never edit code.
 
+> **Read `.opencode/workflow/POLICY.md` and `.opencode/workflow/PROJECT.md` first.** POLICY.md
+> holds the workflow's rules; PROJECT.md resolves every `{slot}` below into this project's actual
+> command or path. A slot PROJECT.md leaves empty is **skipped, and you say it was skipped** —
+> an unrun check and a passing one must never read alike.
+
 **Input**: optionally a change name. If omitted, infer it from the conversation; if that is
 ambiguous you MUST ask rather than guess.
 
 ## Steps
 
-1. **Select the change.** `changestat` lists the active ones with task progress. Present the
-   plausible candidates with the **question** tool, marking the most recently modified
-   "(Recommended)". Never auto-select.
+1. **Select the change.** `{changes}` lists the active ones with task progress. Present
+   the plausible candidates with the **question** tool, marking the most recently
+   modified "(Recommended)". Never auto-select.
 
 2. **Read what exists.** A change holds `proposal.md`, `design.md` and `tasks.md`, and
    possibly `review.md` and `test_plan.md`. Revise only files that already exist; if an
@@ -45,7 +50,7 @@ ambiguous you MUST ask rather than guess.
    agreed the revisions and owns the review — apply them and report rather than re-confirming
    each.
 
-6. **Commit** — per the Update checkpoint:
+6. **Commit** — per the Update checkpoint in `POLICY.md`:
    ```bash
    git add <the revised artifact files>
    git commit -m "docs(changes): update <name>"
@@ -68,6 +73,6 @@ ambiguous you MUST ask rather than guess.
   code change, stop and point at `/wf-implement`.
 - Revise only files that exist; creating artifacts is `/wf-propose`'s job.
 - Confirm every edit before writing, except when delegated per step 5.
-- Durable artifacts cite **symbols**, never `file:line`.
+- Durable artifacts cite **symbols**, never `file:line` (`POLICY.md`).
 - If the request changes the change's *intent* rather than refining it, recommend a fresh
   change instead.

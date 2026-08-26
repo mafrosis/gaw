@@ -10,11 +10,12 @@ metadata:
 
 Enter explore mode. Think deeply. Visualize freely. Follow the conversation wherever it goes.
 
-**IMPORTANT: Explore mode is for thinking, not implementing.** You may read files, search code, and
-investigate the codebase, but you must NEVER write code or implement features. If the user asks you
-to implement something, remind them to exit explore mode first and create a change proposal. You MAY
-create wf artifacts (proposals, designs, tasks) if the user asks—that's capturing thinking, not
-implementing.
+> **Read `.opencode/workflow/POLICY.md` and `.opencode/workflow/PROJECT.md` first.** POLICY.md
+> holds the workflow's rules; PROJECT.md resolves every `{slot}` below into this project's actual
+> command or path. A slot PROJECT.md leaves empty is **skipped, and you say it was skipped** —
+> an unrun check and a passing one must never read alike.
+
+**IMPORTANT: Explore mode is for thinking, not implementing.** You may read files, search code, and investigate the codebase, but you must NEVER write code or implement features. If the user asks you to implement something, remind them to exit explore mode first and create a change proposal. You MAY create workflow artifacts (a proposal, a design, a task list) if the user asks—that's capturing thinking, not implementing.
 
 **This is a stance, not a workflow.** There are no fixed steps, no required sequence, no mandatory outputs. You're a thinking partner helping the user explore.
 
@@ -85,8 +86,8 @@ You have full context of this repository's change workflow. Use it naturally, do
 ### Check for context
 
 At the start, quickly check what exists:
-```bash
-changestat
+```
+{changes}
 ```
 
 This tells you which changes are active and how far each has got.
@@ -115,7 +116,7 @@ If the user mentions a change or you detect one is relevant:
     | Insight Type               | Where to Capture               |
     |----------------------------|--------------------------------|
     | New behaviour discovered   | `tasks.md` (as a task that writes a failing test) |
-    | Architectural decision | a decision record |
+    | Architectural decision     | a record under `{decisions-dir}`    |
     | Design decision made       | `design.md`                  |
     | Scope changed              | `proposal.md`                |
     | New work identified        | `tasks.md`                   |
@@ -123,7 +124,7 @@ If the user mentions a change or you detect one is relevant:
 
    Example offers:
    - "That's a design decision. Capture it in design.md?"
-   - "That's a new behaviour. Pin it in tasks.md?"
+   - "That's new behaviour. Add a task that writes a failing test for it?"
    - "This changes scope. Update the proposal?"
 
 4. **The user decides** - Offer and move on. Don't pressure. Don't auto-capture.

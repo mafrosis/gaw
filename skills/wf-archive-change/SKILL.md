@@ -10,17 +10,22 @@ metadata:
 
 Archive a completed change by moving it under `changes/archive/`.
 
-Archiving is now only bookkeeping: it moves a directory and commits. There is no spec
-merge, because there is no spec corpus to merge into — the change's own artifacts, and the
-code and log they produced, are the record.
+> **Read `.opencode/workflow/POLICY.md` and `.opencode/workflow/PROJECT.md` first.** POLICY.md
+> holds the workflow's rules; PROJECT.md resolves every `{slot}` below into this project's actual
+> command or path. A slot PROJECT.md leaves empty is **skipped, and you say it was skipped** —
+> an unrun check and a passing one must never read alike.
+
+Archiving is only bookkeeping: it moves a directory and commits. Nothing is merged anywhere —
+the change's own artifacts, and the code and tests they produced, are the record.
 
 **Input**: optionally a change name. If omitted, infer it from the conversation; if that is
 ambiguous you MUST ask rather than guess.
 
 ## Steps
 
-1. **Select the change.** `changestat` lists the active ones with their task progress. If more than
-   one is active and the intent is unclear, use the **question** tool. Never auto-select.
+1. **Select the change.** `{changes}` lists the active ones with their task progress. If
+   more than one is active and the intent is unclear, use the **question** tool. Never
+   auto-select.
 
 2. **Check the artifacts are present.** `changes/<name>/` should hold `proposal.md`,
    `design.md` and `tasks.md`. A missing artifact is a warning, not a block: report it and
@@ -28,7 +33,7 @@ ambiguous you MUST ask rather than guess.
 
 3. **Check task completion.**
    ```bash
-   changestat CHANGE=<name>
+   {changes} CHANGE=<name>
    ```
    Report the count. Incomplete tasks are a warning, not a block — confirm with the user
    before proceeding.
@@ -64,12 +69,12 @@ ambiguous you MUST ask rather than guess.
 
 6. **Verify the moved change**, which is the one thing worth checking after the move:
    ```bash
-   changestat CHANGE=archive/$(date +%F)-<name> VERIFY=1
+   {changes} CHANGE=archive/$(date +%F)-<name> VERIFY=1
    ```
    A non-zero exit means tasks remain. That is not a block if the user already accepted it
    in step 3 — but it must be stated in the summary, not silently passed over.
 
-7. **Commit** — per the Archive checkpoint:
+7. **Commit** — per the Archive checkpoint in `POLICY.md`:
    ```bash
    git commit -m "chore(changes): archive <name>"
    ```
@@ -106,16 +111,16 @@ Run /wf-review <name> first, then re-run /wf-archive.
 - **The review gate is a hard block.** Never archive a change containing code without
   `review.md`. Fail closed when unsure.
 - Use `git mv` so the change's history follows it.
-- Run the project's invariants check. If the change added or altered a universal invariant and the
-  invariants index has no row for it, say so and confirm before archiving: the index is the only
-  place that answers "what enforces this claim" once the change is archived.
+- Run `{invariants}`. If the change added or altered a universal invariant and
+  `{invariants-index}` has no row for it, say so and confirm before archiving: the index is
+  the only place that answers "what enforces this claim" once the change is archived.
 - **Ask the ADR question once more, because this is the last point the change's context is in
-  hand.** Read the change's `design.md` Decisions and its `review.md` findings against the three
-  tests: a decision that constrains a change nobody has proposed yet, one evidenced by an absence,
-  one narrowing an accepted record. If a record is owed and none was written — or an accepted record
-  the change contradicted is still unmarked — say so and use the **question** tool before archiving.
-  This informs and confirms; it does not block. Once the directory moves, the reasoning survives
-  only in `changes/archive/`, which nobody reads while deciding the next change, and reconstructing
-  it later produces a guess with a date on it.
+  hand.** Read the change's `design.md` Decisions and its `review.md` findings against
+  `POLICY.md`'s three tests: a decision that constrains a change nobody has proposed yet, one
+  evidenced by an absence, one narrowing an accepted record. If a record is owed and none was
+  written — or an accepted record the change contradicted is still unmarked — say so and use the
+  **question** tool before archiving. This informs and confirms; it does not block. Once the
+  directory moves, the reasoning survives only in `changes/archive/`, which nobody reads while
+  deciding the next change, and reconstructing it later produces a guess with a date on it.
 - Stage explicit paths, and do not sweep unrelated work into the archive commit — another
   session may have staged files.

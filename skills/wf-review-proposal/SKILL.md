@@ -10,14 +10,20 @@ metadata:
 
 Provide a critical review of a change proposal BEFORE implementation, then refine it.
 
+> **Read `.opencode/workflow/POLICY.md` and `.opencode/workflow/PROJECT.md` first.** POLICY.md
+> holds the workflow's rules; PROJECT.md resolves every `{slot}` below into this project's actual
+> command or path. A slot PROJECT.md leaves empty is **skipped, and you say it was skipped** —
+> an unrun check and a passing one must never read alike.
+
 This is an **agent-driven** operation. You critique the plan yourself (with full conversation
 context) and **rewrite the change's artifacts to correct what you found**. This step runs
 **pre-implementation only** and NEVER edits code.
 
-**Correcting the proposal here is the point of the step.** Nothing is built yet, so a task added or
-a design reworked costs only the edit. A review that finds a gap and leaves it in place has not
-saved work — it has moved the gap into apply, which is the one place it is expensive. See "The
-proposal is corrected before apply, not after".
+**Correcting the proposal here is the point of the step.** Nothing is built yet, so a task
+added or a design reworked costs only the edit. A review that finds a gap and leaves it in place
+has not saved work — it has moved the gap into
+apply, which is the one place it is expensive. See "The proposal is corrected before apply, not
+after" in `.opencode/workflow/POLICY.md`.
 
 **Input**: Optionally specify a change name (e.g., `/wf-review-proposal add-auth`). If omitted,
 check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for
@@ -27,7 +33,7 @@ available changes.
 
 - Favor straightforward, minimal implementations first; add complexity only when requested or clearly required.
 - Keep the proposal tightly scoped to the requested outcome.
-- Read the project's own standards and its relevant decision records before proceeding.
+- Read `.opencode/workflow/POLICY.md` and `PROJECT.md`, then the relevant records in `{decisions-dir}`.
 - Identify vague or ambiguous details and ask follow-up questions BEFORE any files change.
 - Review the codebase and ALWAYS prefer reusing existing patterns.
 - If the request changes the change's *intent* (not just refining it), recommend a fresh `/wf-propose` instead of patching.
@@ -40,19 +46,19 @@ available changes.
 * Verifiability — does each task state something you can tell is done, and does behaviour the
   change adds get a test that would fail without it?
 * Codebase grounding — does it reuse existing patterns and fit current architecture?
-* Decision capture — does the plan record the decisions it makes, and mark the accepted records it
-  contradicts? This is the one obligation nobody downstream can discharge cheaply: `/wf-review` is
-  forbidden from authoring a record, and by then the reasoning is a week old. Judge it on the three
-  tests, and treat an unanswered question as a finding — the proposal is required to state that its
-  decisions are local when they are.
+* Decision capture — does the plan record the decisions it makes, and mark the accepted records
+  it contradicts? This is the one obligation nobody downstream can discharge cheaply: `/wf-review`
+  is forbidden from authoring a record, and by then the reasoning is a week old. Judge it on
+  `POLICY.md`'s three tests, and treat an unanswered question as a finding — the proposal is
+  required to state that its decisions are local when they are.
 
 **Steps**
 
 1. **Select the change**
 
-   If a name is provided, use it. Otherwise infer from conversation context, auto-select if only one
-   active change exists, or run `changestat` and use the **question** tool to let the user select.
-   Announce: "Reviewing proposal: <name>".
+   If a name is provided, use it. Otherwise infer from conversation context, auto-select if only
+   one active change exists, or run `{changes}` and use the **question** tool to let the user
+   select. Announce: "Reviewing proposal: <name>".
 
 2. **Pre-flight — establish what is still unbuilt**
 
@@ -64,7 +70,7 @@ available changes.
    you as this skill loads, so you have already been shown what you inherited.
 
    ```bash
-   changestat CHANGE=<name>
+   {changes} CHANGE=<name>
    ```
    Read every artifact in `changes/<name>/`. Note
    which groups are `- [x]`.
@@ -86,7 +92,7 @@ available changes.
 3. **Read for context**
 
    - Read `changes/<name>/proposal.md`, `design.md` and `tasks.md`.
-   - Read the project's own standards and its relevant decision records.
+   - Read `.opencode/workflow/POLICY.md` and `PROJECT.md`, then the relevant records in `{decisions-dir}`.
    - Search the tests before proposing new behaviour: a claim the suite already pins does not
      need restating, and one it contradicts is the finding.
    - Explore the codebase (Grep/Glob/Read) so the plan aligns with implementation reality.
@@ -150,15 +156,15 @@ available changes.
 
    Nothing validates these artifacts mechanically, so check by reading:
    - all three artifacts exist and none contradicts another;
-   - every task is a `- [ ] N.X` checkbox, so `changestat` counts it, and is grouped under a
+   - every task is a `- [ ] N.X` checkbox, so `{changes}` counts it, and is grouped under a
      `## N.` heading that maps to one commit;
-   - `changestat CHANGE=<name>` reports the task count you expect;
-   - no artifact cites `file:line` — durable artifacts cite symbols;
+   - `{changes} CHANGE=<name>` reports the task count you expect;
+   - no artifact cites `file:line` — durable artifacts cite symbols (`POLICY.md`);
    - the ADR question is answered either way: a task writing the record and its index row, a task
      marking each record this change contradicts, or a stated position that the decisions are
      local to this change.
 
-9. **Commit** — per the Review Proposal checkpoint:
+9. **Commit** — per the Review Proposal checkpoint in `POLICY.md`:
 
    ```bash
    git add "changes/<name>/"
@@ -196,10 +202,10 @@ carried by `Precondition:` in the output block — so "right, and waiting on ano
 **Verdict:** <verdict>
 **Precondition:** <none | what must land first, and what clears it>
 **Scope reviewed:** <whole proposal | task group N only>
-**Findings:** <n> (problem-fit, assumptions, tasks, grounding)
+**Findings:** <n> (problem-fit, assumptions, tasks, decisions, grounding)
 **Tasks:** +<added> / -<removed>
 **Revisions:** <artifacts revised, or "none">
-**Artifacts:** coherent; tasks countable by changestat ✓
+**Artifacts:** coherent; tasks countable by `{changes}` ✓
 
 <recommendation, e.g. "Ready for /wf-implement.", "Parked on <change>; /wf-implement once it
  lands." or "Recommend /wf-propose restart.">
@@ -214,12 +220,12 @@ carried by `Precondition:` in the output block — so "right, and waiting on ano
 - **Ask only on ambiguity or objective.** Not on every edit, and not before adding a task that
   the stated objective requires.
 - **A precondition never defers a finding.** Parking a change is a scheduling act; leaving its plan
-  uncorrected is the failure the rule *"The proposal is corrected before apply, not after"* names.
-  The findings are closed here, whatever the plan is waiting on — by the time the precondition
-  clears, this reading of the code is weeks old and has to be redone to be trusted.
+  uncorrected is the failure `POLICY.md`'s *"The proposal is corrected before apply, not after"*
+  names. The findings are closed here, whatever the plan is waiting on — by the time the
+  precondition clears, this reading of the code is weeks old and has to be redone to be trusted.
 - **A revision that pursues a new objective is `Rework`**, however few tasks it adds.
 - NEVER edit code.
-- Reuse existing behaviour and code patterns; do not invent parallels.
+- Reuse the existing tests and code patterns; do not invent parallels.
 - **Do not write a scenario for behaviour that does not exist** unless a task in the same plan
   builds it. That asymmetry — a requirement written as an aspiration — is what turned one review
   finding into nine tasks of unproposed production work.

@@ -10,6 +10,11 @@ metadata:
 
 Implement tasks from a change.
 
+> **Read `.opencode/workflow/POLICY.md` and `.opencode/workflow/PROJECT.md` first.** POLICY.md
+> holds the workflow's rules; PROJECT.md resolves every `{slot}` below into this project's actual
+> command or path. A slot PROJECT.md leaves empty is **skipped, and you say it was skipped** —
+> an unrun check and a passing one must never read alike.
+
 **Input**: Optionally specify a change name. If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available changes.
 
 **Steps**
@@ -19,18 +24,17 @@ Implement tasks from a change.
    If a name is provided, use it. Otherwise:
    - Infer from conversation context if the user mentioned a change
    - Auto-select if only one active change exists
-   - If ambiguous, run `changestat` to list the active ones and use the **question** tool to let the
-     user select
+   - If ambiguous, run `{changes}` to list the active ones and use the **question** tool to let the user select
 
    Always announce: "Using change: <name>" and how to override (e.g., `/wf-implement <other>`).
 
 2. **Read the change and its progress**
 
-   The change lives in `changes/<name>/` and holds `proposal.md`, `design.md` and `tasks.md`, plus
-   `review.md` once it has been reviewed. Read all of them, and the project's own standards.
+   The change lives in `changes/<name>/` and holds `proposal.md`, `design.md` and `tasks.md`,
+   plus `review.md` once it has been reviewed. Read all of them, and `.opencode/workflow/POLICY.md`.
 
    ```bash
-   changestat CHANGE=<name>
+   {changes} CHANGE=<name>
    ```
 
    - **No `tasks.md`:** the change is not ready to apply — point at `/wf-propose`.
@@ -68,8 +72,9 @@ Implement tasks from a change.
    - Tick the box in `tasks.md`: `- [ ]` → `- [x]`, and mark its todo `completed`
    - Continue to next task
 
-   **After each task group** (all tasks under a `## N` heading complete): auto-commit that group's
-   code changes together with its `tasks.md` checkbox updates, per the project's commit policy:
+   **After each task group** (all tasks under a `## N` heading complete): auto-commit that
+   group's code changes together with its `tasks.md` checkbox updates, per the git commit
+   policy in `POLICY.md`:
    ```bash
    # stage this group's changed files + tasks.md, then:
    git commit -m "<type>(<scope>): <group summary> [<name>]"
@@ -98,23 +103,24 @@ Implement tasks from a change.
    ends. A session that leaves that unrecorded has not deferred the work; it has destroyed the
    evidence, and the next change pays for those attempts again.
 
-   So when the work decides something that meets the three tests — it constrains a change nobody has
-   proposed yet, its evidence is an absence, or it narrows a record already accepted — and no task
-   covers it:
+   So when the work decides something that meets `POLICY.md`'s three tests — it constrains a
+   change nobody has proposed yet, its evidence is an absence, or it narrows a record already
+   accepted — and no task covers it:
 
    - **Append the task to the current group** rather than writing the record silently, so it is
-     committed with the work that produced it and `changestat` counts it. One line, per the
+     committed with the work that produced it and `{changes}` counts it. One line, per the
      `tasks.md` rule: the record itself carries the reasoning.
-   - The task writes the record, adds its row to the decision-record index, and marks any accepted
-     record the discovery contradicts — status, amendment block, index row, per that index.
+   - The task writes the record, adds its row to `{decisions-index}`, and marks any accepted record
+     the discovery contradicts — status, amendment block, index row, per `POLICY.md`'s "A decision
+     the next change would re-litigate gets a record".
    - **A record *this change* wrote, falsified by a later group of the same change, is not an
-     amendment.** the amendment trigger is a sentence made false in an **accepted** record; one this
+     amendment.** `POLICY.md`'s trigger is a sentence made false in an **accepted** record; one this
      change authored two groups ago was never accepted and shipped, so marking it amended dates a
      collision that never happened. It is an error in the change's own output: append a task to the
      current group and correct the record. The shape to watch for is a Consequence describing the
      mechanism as it stood mid-change — true when written, false one commit later once a following
      group moved the authority it named.
-   - **But if the decision changes the change's direction** — it reverses a recorded ADR, or
+   - **But if the decision changes the change's direction** — it reverses an accepted record, or
      abandons the approach `design.md` was reviewed on — stop and escalate to `/wf-update` +
      `/wf-review-proposal`. Authoring a new direction here is unreviewed design entering the tree,
      for the reason step 5(d) gives, and the escalation is cheap while the code is still warm.
@@ -134,33 +140,35 @@ Implement tasks from a change.
 
 5. **Definition of done for a review fix (`RN.X` tasks)**
 
-   A fix for a review finding is held to the standard the finding was raised under. Apply it to the
-   fix's *own* output, not only to the code it corrects. Every regression in the originating
-   repository's history arrived in a review fix, and three consecutive reviews of one change blocked
-   on fixes that shipped a fresh instance of the fault they were closing.
+   A fix for a review finding is held to the standard the finding was raised under. Apply it to
+   the fix's *own* output, not only to the code it corrects. Every regression in the originating
+   repository's history arrived in a review fix, and three consecutive reviews of one change
+   blocked on fixes that shipped a fresh instance of the fault they were closing.
 
    Before committing a group containing `RN.X` tasks, confirm all four:
 
-   a. **Every guard the fix added has a test that fails when the guard is removed.** Not "is
-      covered" — removed or inverted, package run, seen red, restored. Record the mutation in a
-      comment on the test, as the project's standards require — not in the `tasks.md` entry, which
+   a. **Every guard the fix added has a test that fails when the guard is removed.** Not
+      "is covered" — removed or inverted, package run, seen red, restored. Record the mutation
+      in a comment on the test, as `POLICY.md` requires — not in the `tasks.md` entry, which
       stays one line.
-   b. **The coverage profile, then the uncovered-lines report for each package the fix touched**,
-      one invocation per package. Assert it in the commit message: `Coverage-checked:
-      internal/store, internal/cli`. The `test-cover` first is not optional — `cover-gaps` reads a
-      gitignored `coverage.out` that nothing regenerates, so a stale profile satisfies the condition
-      silently. A package whose floor is above zero is reported with its residue, not declared
-      clean.
-   c. **The gate passes** — format, lint and test, plus any suite the touched surface needs.
+   b. **`{coverage}`, then `{coverage-gaps}` for each package or module the fix touched**, one
+      invocation each. Assert it in the commit message: `Coverage-checked: <the units>`. Running
+      `{coverage}` first is not optional — `{coverage-gaps}` reads a profile that nothing else
+      regenerates, so a stale one satisfies the condition silently. A unit whose floor is above
+      zero is reported with its residue, not declared clean. Where `PROJECT.md` declares neither
+      command, say the check was unavailable rather than passing over it.
+   c. **`{gate}` passes**, including any conditional command `PROJECT.md` names for the surface
+      touched, per `POLICY.md`.
    d. **The fix does only what the finding asked.** A fix that adds a mechanism, changes an
       interface, or refactors across package boundaries is not a review fix — it is new scope
       wearing one. Stop, and take it through `/wf-update` + `/wf-review-proposal`, which is
       the only path on which a design gets reviewed before it is written.
 
-      This is the fault that has cost the originating repository the most per line. A review-2 fix
-      once wrote a claim broader than the code it described; two rounds later that one sentence was
-      a mandate for nine tasks of production work no proposal had asked for, plus three further
-      review passes. Describe what the code does; do not write down an aspiration and then be bound
+      This is the fault that has cost the originating repository the most per line. A review-2
+      fix once wrote a
+      claim broader than the code it described; two rounds later that one sentence was a mandate
+      for nine tasks of production work no proposal had asked for, plus three further review
+      passes. Describe what the code does; do not write down an aspiration and then be bound
       by it.
 
    **If a fix cannot be implemented as written, do not approximate it.** Say so, record the
@@ -192,13 +200,14 @@ Implement tasks from a change.
 
    a. Summarize the work completed this session, including any task groups left incomplete (see step 6).
 
-   b. Present the user with a **Recommended Test Plan** — concrete steps and commands to verify the
-      functionality works as intended (e.g. the project's test command, named packages or suites,
-      manual steps, example requests). Prefer the project's real commands.
+   b. Present the user with a **Recommended Test Plan** — concrete steps and commands to verify
+      the functionality works as intended: the `{test}` command, a narrower run of the packages or
+      modules touched, manual steps, example requests. Prefer the project's real commands, as
+      `PROJECT.md` declares them, over invented ones.
 
    c. Write `changes/<name>/test_plan.md`. If it already exists, **merge** with the existing content (do not clobber it) so it stays a comprehensive test plan for future readers.
 
-   d. Commit it — per the Apply checkpoint:
+   d. Commit it — per the Apply checkpoint in `POLICY.md`:
       ```bash
       git add "changes/<name>/test_plan.md"
       git commit -m "docs(changes): test-plan <name>"
@@ -250,17 +259,18 @@ Implement tasks from a change.
     can demonstrate the first half and not the second while the second half is false. A test
     existing per claim is not the check; a test exercising each clause is.
 
-    **Weigh provenance.** If this session's work was `RN.X` review fixes, a following round would be
-    reviewing review-derived work, which the provenance gate permits to block only on a
-    user-observable defect — so the round's conclusion is largely predetermined. Say so, and prefer
-    the targeted check. If the session implemented the proposal's *What Changes*, a round has
-    proposed work to review and that argument for skipping is weaker.
+    **Weigh provenance.** If this session's work was `RN.X` review fixes, a following round
+    would be reviewing review-derived work, which `POLICY.md`'s provenance gate permits to
+    block only on a user-observable defect — so the round's conclusion is largely
+    predetermined. Say so, and prefer the targeted check. If the session implemented the
+    proposal's *What Changes*, a round has proposed work to review and that argument for
+    skipping is weaker.
 
     **Never soften the recommendation because you authored the work.** The assessment is being
     made by whoever just wrote the code, which is the one perspective that cannot see its own
     blind spot, and the bias runs one way: toward skipping, because skipping is what ends the
     session. Where a signal is unmeasured, report it as unmeasured rather than as passing — an
-    unrun `cover-gaps` and a clean one are indistinguishable in a report that omits both.
+    unrun `{coverage-gaps}` and a clean one are indistinguishable in a report that omits both.
 
 **Output During Implementation**
 
@@ -350,13 +360,12 @@ What would you like to do?
   shape of finished work, so reaching for it is attractive at any group boundary. **A limit you
   cannot measure is not a limit you have** — there is no context meter here, so "running low" is an
   impression, and reporting an impression as a constraint is the fault step 8 names about an unrun
-  `cover-gaps`, in the one place nobody can check it.
+  `{coverage-gaps}`, in the one place nobody can check it.
 - Always read the change's artifacts before starting
 - If task is ambiguous, pause and ask before implementing
 - If implementation reveals issues, pause and suggest artifact updates
 - Keep code changes minimal and scoped to each task
-- Auto-commit once per task group (bundling code with its checkbox updates) per the project's commit
-  policy
+- Auto-commit once per task group (bundling code with its checkbox updates) per the git commit policy in `POLICY.md`
 - **A group containing `RN.X` review fixes is not committable until step 5's four conditions
   hold.** A fix that adds an unverified guard has moved the fault rather than closed it, and
   nothing mechanical will notice.
@@ -373,8 +382,7 @@ What would you like to do?
   leaving it uncaptured makes the next change repeat it. A decision that changes *direction*
   escalates instead.
 - Pause on errors, blockers, or unclear requirements - don't guess
-- On wrap-up, present a recommended test plan and write/merge `changes/<name>/test_plan.md`,
-  committing it per the Apply checkpoint (`docs(changes): test-plan <name>`)
+- On wrap-up, present a recommended test plan and write/merge `changes/<name>/test_plan.md`, committing it per the Apply checkpoint in `POLICY.md` (`docs(changes): test-plan <name>`)
 - **Close the report with a review recommendation** (step 8): one of the three actions, how many
   of the four conditions are unmet, the six signals, and what would move it. Skipping names the
   cheaper check *in the recommendation itself* — a recommendation to skip with no named substitute

@@ -9,3 +9,6 @@ what you want. If it is missing, infer it from the conversation; ask rather than
 **Use the skill tool to load `wf-review-change`, then follow it.** That skill is the single
 source of truth for this workflow step — this file deliberately carries no copy of it,
 because two copies drift and the copy is what gets read.
+
+The skill will send you to `.opencode/workflow/POLICY.md` for the workflow's rules and
+`.opencode/workflow/PROJECT.md` for what this project's `{slot}` names resolve to.

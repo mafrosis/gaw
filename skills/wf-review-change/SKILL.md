@@ -10,6 +10,11 @@ metadata:
 
 Review the implementation of a change for quality and adherence to what it proposed.
 
+> **Read `.opencode/workflow/POLICY.md` and `.opencode/workflow/PROJECT.md` first.** POLICY.md
+> holds the workflow's rules; PROJECT.md resolves every `{slot}` below into this project's actual
+> command or path. A slot PROJECT.md leaves empty is **skipped, and you say it was skipped** —
+> an unrun check and a passing one must never read alike.
+
 This is an **agent-driven** operation. The deep review is delegated to the `general`
 subagent (Task tool); you orchestrate context resolution, then persist findings to
 `review.md`, **close the trivial ones yourself**, and record the rest as `RN.X` tasks in
@@ -35,17 +40,17 @@ prompt for available changes.
 
 **Two classes no mechanical check can find**
 
-Every review MUST look for these by hand, because the linter and a green test suite both pass while
-they are present.
+Every review MUST look for these by hand, because `{lint}` and a green `{test}` both
+pass while they are present.
 
 1. **A guard with no test that fails when the guard is removed.** Coverage cannot see this: a
    line executed by a test that would pass without it reads exactly like a pinned line.
    Establish this by **mutation** — delete or inverse the guard in a scratch copy, run the
    package, restore. Report per guard, not per package.
 
-   This is the class that matters most now that there is no spec corpus. A test is the only durable
-   statement of intended behaviour the project keeps, so a behaviour whose test cannot fail is a
-   behaviour nothing records.
+   This is the class that matters most, because a test is the only durable statement of intended
+   behaviour a project keeps — see `POLICY.md`'s "Behaviour is described by tests". A behaviour
+   whose test cannot fail is a behaviour nothing records.
 
 2. **A gap between what the proposal promised and what the code does**, in either direction.
    Read `proposal.md`'s *What Changes* against the code: something promised and absent, and
@@ -77,9 +82,9 @@ Three things, all in **one** commit:
 
 It may **not** write:
 
-- **Production code.** Not a Go statement outside a `_test.go` file, not anything under
-  `app/src/`. A finding whose fix would is a task, without exception, and that is what keeps
-  this step's blast radius the size of a test.
+- **Production code.** Nothing under `{production-roots}` except a file matching
+  `{test-patterns}`. A finding whose fix would is a task, without exception, and that is what
+  keeps this step's blast radius the size of a test.
 - **`proposal.md` or `design.md`**, even when a finding is plainly correct. Those are pre-apply
   artifacts and the workflow's only design gate (`/wf-review-proposal`) sits before apply. A
   plan revised here is a plan nobody reviewed.
@@ -87,13 +92,14 @@ It may **not** write:
 That second bar is the mirror of `/wf-review-proposal`, which **does** rewrite those artifacts
 freely because nothing is built when it runs. Once code exists the asymmetry inverts: a `design`
 finding is escalated to `/wf-update` (revise the artifacts) then `/wf-review-proposal` (review the
-revision). See "The proposal is corrected before apply, not after".
+revision). See "The proposal is corrected before apply, not after" in
+`.opencode/workflow/POLICY.md`.
 
-**A fix this step makes is held to the same standard as an `RN.X` fix.** the review-fix rules are
-not about which command applied the fix. So a test added here is confirmed red against the mutation
-it defends, with that mutation recorded in a comment on the test, and The gate — format, lint and
-test, plus any suite the touched surface needs — passes before the commit. A trivial fix is trivial
-in size, never in evidence.
+**A fix this step makes is held to the same standard as an `RN.X` fix.** `POLICY.md`'s review-fix
+rules are not about which command applied the fix. So a test added here is confirmed red against
+the mutation it defends, with that mutation recorded in a comment on the test, and
+`{gate}` — including any conditional command `PROJECT.md` names for the surface touched —
+passes before the commit. A trivial fix is trivial in size, never in evidence.
 
 **What is not under review, at all:**
 
@@ -102,16 +108,17 @@ in size, never in evidence.
   drifted line numbers, or a test name that has since been renamed. You read it for exactly two
   things: the review number `N`, and which `R(N-1).X` items to judge. Nothing else in it is
   evidence, and nothing in it is a defect you may report.
-- **Narration in `tasks.md`.** Prose describing how a previous fix was verified is not a behaviour
-  and cannot be wrong in a way that matters. The project's standards forbid that narration existing;
-  do not generate findings about it where it does.
+- **Narration in `tasks.md`.** Prose describing how a previous fix was verified is not a
+  behaviour and cannot be wrong in a way that matters. `POLICY.md` forbids that narration
+  existing; do not generate findings about it where it does.
 - **`test_plan.md`, beyond a command that does not run.** A stale sentence in it is not worth a
   round.
 
-The reason is measured. Reviewing prose produces prose findings, whose fixes are more prose, which
-the next round then verifies — seven of the eight findings across one change's rounds 2–4 were
-prose-versus-code mismatches and not one was a service defect. Judge the **code** against the
-change's artifacts. If a document disagrees with the code, the finding is one line naming both.
+The reason is measured. Reviewing prose produces prose findings, whose fixes are more prose,
+which the next round then verifies — seven of the eight findings across one change's rounds 2–4
+were prose-versus-code mismatches and not one was a service defect. Judge the **code** against
+the tests and the proposal. If a document disagrees with the code, the finding is one line
+naming both.
 
 **Brevity is a correctness property of a review, not a courtesy**
 
@@ -138,23 +145,24 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
    If a name is provided, use it. Otherwise:
    - Infer from conversation context if the user mentioned a change
    - Auto-select if only one active change exists
-   - If ambiguous, run `changestat` and use the **question** tool to let the user select
+   - If ambiguous, run `{changes}` and use the **question** tool to let the user select
 
    Always announce: "Reviewing change: <name>" and how to override (e.g., `/wf-review <other>`).
 
 2. **Resolve change context**
 
-   Read every artifact in `changes/<name>/`: `proposal.md`, `design.md`, `tasks.md`, and `review.md`
-   if earlier rounds exist. Read the project's own standards, and the decision records that the
-   change touches.
+   Read every artifact in `changes/<name>/`: `proposal.md`, `design.md`, `tasks.md`, and
+   `review.md` if earlier rounds exist. Read the workflow policy in
+   `.opencode/workflow/POLICY.md` and the project slots in `PROJECT.md`, then the records under
+   `{decisions-dir}` that the change touches.
 
    **Re-seed the todo list from this change's `tasks.md`**, including its `RN.X` review-fix entries,
    and discard whatever the session inherited. `tasks.md` is authoritative here as everywhere. The
    list mirrors *tasks*, so `review.md` is not tracked by it — a round's findings are not todos, and
-   adding them makes the sidebar disagree with the file on the next `changestat` count.
+   adding them makes the sidebar disagree with the file on the next `{changes}` count.
 
    ```bash
-   changestat CHANGE=<name>
+   {changes} CHANGE=<name>
    ```
 
 3. **Determine the review number N**
@@ -167,15 +175,16 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
    Use the Task tool (subagent_type: "general"). The prompt MUST include:
    - the change name and its artifact paths (proposal, design, tasks)
    - the Focus Areas above **and the two classes no mechanical check can find**
-   - **what is under review and what is not** — in particular that `review.md` is never a source of
-     findings, and that prose findings are the loop the measurement above already paid for
+   - **what is under review and what is not** — in particular that `review.md` is never a
+     source of findings, and that prose findings are the loop this workflow already paid for
    - **the brevity rules above**, including the budget and the one-line rule for
      documentation debt. Instruct it to return findings, not an essay: each finding is a
      claim plus its evidence, and nothing else
-   - the project's own standards and its relevant decision records
+   - the workflow policy (`.opencode/workflow/POLICY.md`), the project slots (`PROJECT.md`) and
+     the relevant records in `{decisions-dir}`
    - the grounding requirements below, which the subagent MUST report on explicitly
-   - instruction to work through `tasks.md` sequentially, verify the implemented code adheres to the
-     proposal and design, and **return markdown only (do not write files)** containing:
+   - instruction to work through `tasks.md` sequentially, verify the implemented code adheres
+     to the proposal and design, and **return markdown only (do not write files)** containing:
      a. findings organized by Focus Area, each with `file:line` references
      b. each finding classified `Blocking` / `Should fix` / `Non-blocking`, and tagged
         `correctness` | `verification` | `docs` | `design` | `cleanup` (see step 5)
@@ -186,28 +195,29 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
      e. a numbered list of recommended fixes (empty if none)
 
    **Grounding requirements.** State the result of each, and say plainly when one was not run:
-   - the project's format, lint and test commands, plus any suite the touched surface needs
+   - `{gate}`, including any conditional command `PROJECT.md` names for the surface touched
    - read `proposal.md`'s *What Changes* against the code, in both directions: promised and
      absent, and built but never asked for. Nothing checks this.
-   - the coverage profile, then the uncovered-lines report **once per touched package, separately**.
-     A space-separated list is not a substitute; report the per-package output.
+   - `{coverage}`, then `{coverage-gaps}` **once per touched package,
+     separately**. A space-separated list is not a substitute; report the per-package output.
    - mutation of every guard the change added, per class 1 above
    - `git status --short` before returning, with the result stated. `general` has write access,
      so a mutation session's restores are verified rather than assumed — twenty-six edits to
      invert thirteen guards, and a missed restore is silent whenever the suite still passes. If
      the tree differs from how the round found it, that goes at the top of the report.
-   - the project's invariants check, and read its invariants index against the change in both
-     directions: a universal invariant the change introduced or altered with no row, and a row the
-     change made wrong. The checker resolves citations, so it catches a renamed test; nothing
-     catches a row that was never added, or one whose claim the change quietly narrowed.
-   - **the decision records against the change, in both directions**, and report on each: a decision
-     the change made that meets the three tests and no record holds, and an accepted record whose
-     sentences the change made false. Nothing mechanical checks either, and the second is missed
-     more often because it is a file the change never opened. The two land on different routes in
-     step 5 — marking a contradicted record is route A, a missing record is route C.
-   - if the review is `N > 1`, judge each `R(N-1).X` item as *genuinely fixed* rather than ticked,
-     by mutation — and check whether the fix itself introduced a new instance of either class. Every
-     regression in the originating repository's history arrived in a review fix, not in an apply.
+   - `{invariants}`, and read `{invariants-index}` against the change in both directions:
+     a universal invariant the change introduced or altered with no row, and a row the change
+     made wrong. The checker resolves citations, so it catches a renamed test; nothing catches
+     a row that was never added, or one whose claim the change quietly narrowed.
+   - **`{decisions-dir}` against the change, in both directions**, and report on each: a decision the
+     change made that meets `POLICY.md`'s three tests and no record holds, and an accepted record
+     whose sentences the change made false. Nothing mechanical checks either, and the second is
+     missed more often because it is a file the change never opened. The two land on different
+     routes in step 5 — marking a contradicted record is route A, a missing record is route C.
+   - if the review is `N > 1`, judge each `R(N-1).X` item as *genuinely fixed* rather than
+     ticked, by mutation — and check whether the fix itself introduced a new instance of
+     either class. Every regression in the originating repository's history arrived in a review
+     fix, not in an apply.
    - a tool that reports "no findings" is not evidence until you have seen it report a
      finding you planted. An empty report and a broken invocation are indistinguishable.
 
@@ -218,14 +228,14 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
 
    **Route A — `fix now`. Close it yourself, in this round's commit.**
 
-   - `docs` — a wrong or stale sentence in `README.md`, an example config, a code comment, or a
-     invariants-index row. Correct it.
-   - `docs` — **an accepted ADR the shipped change made false.** Mark it per the decision-record
-     index: status `Accepted (amended)`, an amendment block naming the amending record, the index
-     row. This is bookkeeping on a record whose decision was already taken, not design authorship,
-     and the index's amendment process explicitly provides for it. It is on this route because the
+   - `docs` — a wrong or stale sentence in `{operator-docs}`, a code comment, or an
+     `{invariants-index}` row. Correct it.
+   - `docs` — **an accepted ADR the shipped change made false.** Mark it per `{decisions-index}`:
+     status `Accepted (amended)`, an amendment block naming the amending record, the index row. This
+     is bookkeeping on a record whose decision was already taken, not design authorship, and the
+     index's amendment process explicitly provides for it. It is on this route because the
      alternative is a record that states something the code no longer does, which is the exact
-     failure the deleted spec corpus was deleted for.
+     failure a spec corpus gets deleted for.
    - `verification` where the fix is **test-only and additive** — a missing case, a mutation
      comment that was never recorded, a vacuous assertion to delete.
    - `cleanup` that touches only prose or comments.
@@ -266,12 +276,12 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
    - **The proposal or design itself looks wrong** — not the code's fidelity to it, but the
      plan. Only the person who owns the objective can decide that, and no route this step
      controls can.
-   - **The change decided something durable that no record holds** — it meets the three tests and
-     neither the proposal nor the apply session captured it. Say what the decision was, what the
-     alternative was, and recommend `/wf-update` to add the task. **Do not write the record.** A
-     review may mark a record the change contradicted (route A) but may not author a new one: every
-     regression traceable to a review fix in the originating repository's history came from a review
-     authoring rather than reporting, and a decision record written by a reader reconstructing
+   - **The change decided something durable that no record holds** — it meets `POLICY.md`'s three
+     tests and neither the proposal nor the apply session captured it. Say what the decision was,
+     what the alternative was, and recommend `/wf-update` to add the task. **Do not write the
+     record.** A review may mark a record the change contradicted (route A) but may not author a
+     new one: every regression traceable to a review fix in the originating repository came from
+     a review authoring rather than reporting, and a decision record written by a reader reconstructing
      intent is a guess with a date on it.
 
    **The resolution you recommend sets the route, not the most expensive one available.** A
@@ -288,12 +298,13 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
    originating repository's regressions came from exactly that: two small tidy-ups, each of which
    shipped a regression.
 
-   **Why routes A and B do not ask.** The rule they replace made every finding a question, on the
-   grounds that "a review that writes its own task list converts every observation into committed
-   work" — three rounds on one change produced 21 tasks that way and 14 were later dropped. That
-   evidence is real but it indicts the *cleanup* class, which is why cleanups are still deferred and
-   still unasked-for. It says nothing about a bug or a stale comment. Gating those on a question
-   bought no scheduling decision and cost a round trip every time.
+   **Why routes A and B do not ask.** The rule they replace made every finding a question, on
+   the grounds that "a review that writes its own task list converts every observation into
+   committed work" — three rounds on one change produced 21 tasks
+   that way and 14 were later dropped. That evidence is real but it indicts the *cleanup* class,
+   which is why cleanups are still deferred and still unasked-for. It says nothing about a bug
+   or a stale comment. Gating those on a question bought no scheduling decision and cost a round
+   trip every time.
 
    **Provenance gate — is the finding against work anyone asked for?**
 
@@ -311,11 +322,11 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
    recommend closing the change rather than fixing the tail.
 
    This is the termination condition, and it is why there is no cap on review rounds. A round limit
-   is arbitrary and cuts good rounds off with bad. Provenance is not: rounds 1–3 of one change
-   reviewed proposed work and found three user-visible defects — they paid for themselves. Round 4
-   found one user-observable defect and five items of bookkeeping against a task group that a review
-   had created four days earlier, and its own text planned a round five. The difference between
-   those rounds is provenance, not number.
+   is arbitrary and cuts good rounds off with bad. Provenance is not. In the case this was measured
+   on, rounds 1–3 reviewed proposed work and found three user-visible defects — they paid for
+   themselves. Round 4 found one user-observable defect and five items of bookkeeping against a task
+   group that a review had created four days earlier, and its own text planned a round five. The
+   difference between those rounds is provenance, not number.
 
    **Scope cap.** If the `RN.X` set you are about to recommend would take more than roughly
    500 lines of *production* change, stop. Do not recommend it. Return a verdict of
@@ -344,9 +355,9 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
    defends and record that mutation in a comment on the test — the same standard `/wf-implement`
    holds an `RN.X` fix to.
 
-   Then run the gate: format, lint and test, plus any suite the touched surface needs, plus the
-   invariants check if a row moved. Do not proceed until all pass. A review that commits a red tree
-   has done more damage than the finding it closed.
+   Then run `{gate}`, including any conditional command `PROJECT.md` names for the surface
+   touched, plus `{invariants}` if a row moved. Do not proceed until all pass. A review that
+   commits a red tree has done more damage than the finding it closed.
 
    If a fix turns out to be larger than route A allows — it needs a production edit, or an
    existing assertion's expected value has to move — **stop and reroute it** to B or C. Say so in
@@ -355,8 +366,8 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
 8. **Write the route-B tasks**
 
    Append a `## Review N Findings` section to `tasks.md` with one `- [ ] RN.X <action>` line per
-   route-B finding. No asking. Lead with which items block. One line each: the project's standards
-   forbid narrating evidence into the artifact, and the evidence is already in `review.md`.
+   route-B finding. No asking. Lead with which items block. One line each: `POLICY.md` forbids
+   narrating evidence into the artifact, and the evidence is already in `review.md`.
 
 9. **Ask — only if route C has anything in it**
 
@@ -370,9 +381,9 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
 
    Write whatever they approve into `tasks.md`, as one line each.
 
-   **A review may not create meta-work.** A finding that a tool or a `Makefile` target would help is
-   recorded as a finding, not turned into a change. The project's standards cap meta-work at one
-   change in flight and reserve that decision for the user.
+   **A review may not create meta-work.** A finding that a tool or a task-runner target would
+   help is recorded as a finding, not turned into a change. `POLICY.md` caps meta-work at one
+   change in flight and reserves that decision for the user.
 
    **A finding about the workflow itself is applied directly, not tasked.** If a round concludes
    that a `wf-*` skill, a `wf-*` command, `.opencode/workflow/POLICY.md` or `PROJECT.md`, the task
@@ -382,7 +393,7 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
    bar above forbids that). Report it, then edit the file, with the workflow's own tests green and
    its own commit separate from this round's.
 
-10. **Commit — once, with everything** — per the Review checkpoint:
+10. **Commit — once, with everything** — per the Review checkpoint in `POLICY.md`:
 
     ```bash
     git add "changes/<name>/review.md" "changes/<name>/tasks.md" <files fixed in step 7>
@@ -401,9 +412,9 @@ closed in place by route A leaves nothing, so it does not make the verdict `Chan
 report it as fixed and move on.
 
 For anything not closed in place, the question is mechanical: **does fixing it change executable
-behaviour** — a Go statement, a `Makefile` recipe, a `.golangci.yaml` setting, or a test
-assertion? Not "is it important"; that judgement is what let three rounds of prose findings read
-as blocking.
+behaviour** — a statement under `{production-roots}`, a build or task-runner recipe, a linter
+setting, or a test assertion? Not "is it important"; that judgement is what let three rounds of
+prose findings read as blocking.
 
 - **Approved** — no findings worth acting on.
 - **Approved with fixes applied** — findings existed and every one went to route A. They are
@@ -440,10 +451,10 @@ block — executable *and*, where review-derived, user-observable.
 
 - Favor simple, yet high quality code. Ensure the change delivers what its proposal promised.
 - Keep recommendations tightly scoped to the change's intended outcome.
-- Read the project's own standards and its relevant decision records before reviewing.
-- **Never change production behaviour.** No Go statement outside a `_test.go` file, nothing
-  under `app/src/`. Those fixes are `RN.X` tasks implemented via `/wf-implement`, which is where
-  the evidence gate lives.
+- Read `.opencode/workflow/POLICY.md` and `PROJECT.md`, then the relevant `{decisions-dir}` records.
+- **Never change production behaviour.** Nothing under `{production-roots}` except a file
+  matching `{test-patterns}`. Those fixes are `RN.X` tasks implemented via `/wf-implement`, which
+  is where the evidence gate lives.
 - **Fix the trivial findings; do not ask about them.** A stale comment, a missing test case, a
   vacuous assertion — close them in this round's commit. Route C (step 5) is the only route that
   reaches the user, and a round with nothing in it asks nothing at all.

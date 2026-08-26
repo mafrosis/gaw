@@ -374,6 +374,14 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
    recorded as a finding, not turned into a change. The project's standards cap meta-work at one
    change in flight and reserve that decision for the user.
 
+   **A finding about the workflow itself is applied directly, not tasked.** If a round concludes
+   that a `wf-*` skill, a `wf-*` command, `.opencode/workflow/POLICY.md` or `PROJECT.md`, the task
+   counter or the todo-sync plugin is wrong, that is a direct commit — see `POLICY.md`'s "The
+   workflow is edited directly, never proposed". It is neither an `RN.X` task against the change
+   under review (the change did not cause it and its author cannot close it) nor a new change (the
+   bar above forbids that). Report it, then edit the file, with the workflow's own tests green and
+   its own commit separate from this round's.
+
 10. **Commit — once, with everything** — per the Review checkpoint:
 
     ```bash

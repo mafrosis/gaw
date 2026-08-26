@@ -117,6 +117,60 @@ not ask for per-commit confirmation at these points.
   requested.
 - If a commit or a hook fails, fix forward with a new commit — do not amend the failed one.
 
+## The workflow is edited directly, never proposed
+
+**A change to the workflow itself is a direct commit.** No change directory, no proposal, no
+review round, no archive.
+
+| | |
+|---|---|
+| **Scope** | a `wf-*` skill, a `wf-*` command, anything under `.opencode/workflow/`, `tasks-todo-sync.ts`, the bundle's tests |
+| **Message** | `docs(wf): <what>` for prose, `fix(wf): <what>` or `refactor(wf): <what>` for the executable parts |
+| **Gate** | `{workflow-test}` green, explicit paths staged |
+
+This is not an exemption from rigour. It is a measurement of where a review round pays, and
+three of them say it does not pay here.
+
+1. **The workflow is prose, and reviewing prose produces prose findings.** "A review reviews code,
+   never the review record" below has the number: seven of eight findings across one change's
+   rounds 2–4 were prose-versus-code mismatches and not one was a service defect. A `SKILL.md` is
+   nothing *but* prose, so a review round against it is that ratio with no denominator.
+2. **The loop was already measured on exactly this material.** Three meta changes — two of them
+   changes to these skills — went four and three review rounds. The propose/review pipeline applied
+   to a sentence in a skill file costs more than the sentence.
+3. **It is circular.** `/wf-review-proposal` reviewing a change to `/wf-review-proposal` is the
+   instrument measuring itself, mid-edit, and a change that breaks the loop breaks its own review.
+
+What replaces the round is the same thing that replaces it for any direct commit: a test. The
+bundle's executable parts — the task counter, the checkbox parser, the todo-sync plugin — are
+covered by `{workflow-test}`, and `tests/self-contained.test.ts` fails when a skill cites a command
+or a path that `PROJECT.md` does not declare. That is the check a review round would not have
+performed anyway.
+
+### Three things this does not license
+
+1. **A change to the project's own tooling is still capped meta-work.** Build tooling,
+   task-runner targets, linter configuration — those are project code that the workflow happens to
+   call, not workflow files. See "Meta-work is capped at one change in flight" below.
+2. **A change of workflow *direction* still owes a decision record**, on the same three tests as
+   anything else, and for the same reason: the rejected alternative lives nowhere else. Removing a
+   step, changing what artifacts a change holds, abandoning the mirror between `tasks.md` and the
+   todo list — each is a direct commit's worth of diff and a record's worth of decision.
+3. **An edit to the executable parts is held to the standard any code is.** A guard added to the
+   plugin or the counter needs a test that fails without it, with the mutation recorded in a
+   comment on the test, per "A review fix is held to the standard its finding was raised under"
+   below. Direct commit means no review *round*; it does not mean no evidence.
+
+### What this means for the steps
+
+- **`/wf-propose`** — refuse. A request to change a skill, a command, `POLICY.md` or `PROJECT.md`
+  is not a change to propose; say so and edit the file.
+- **`/wf-review`** — a finding that the workflow itself should change is reported and then applied
+  directly, not turned into an `RN.X` task and not turned into a new change. This is distinct from
+  the meta-work bar below, which forbids a review *creating* a change.
+- **`/wf-update`** and **`/wf-archive`** — a workflow edit never reaches either; there is no change
+  directory to update or archive.
+
 ## The proposal is corrected before apply, not after
 
 `/wf-review-proposal` **rewrites** the change's artifacts. That is what the step is for. Nothing
@@ -375,7 +429,11 @@ tooling, task-runner targets, linter configuration. At most one may be active at
 proposal must open with the business cost it removes.
 
 The workflow's own files are **not** in this category — they are a direct commit, per "The
-workflow is edited directly" below.
+workflow is edited directly, never proposed" above. That exclusion is deliberate and it is the
+one thing in this section that changed: workflow prose used to be named here as capped meta-work,
+which meant a two-line correction to a skill needed a proposal, a review, an apply and an archive.
+Both of the meta changes whose measurement justifies this cap were changes to these skills, which
+is the argument for taking them off the pipeline rather than for gating them harder.
 
 **A review may not create meta-work.** It records a finding; turning that finding into a change is
 a decision for the person who owns the schedule.

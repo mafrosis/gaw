@@ -25,6 +25,17 @@ that writes a failing test.
 
 **Input**: a change name (kebab-case), or a description to derive one from.
 
+## Refuse a workflow edit before step 1
+
+If what is being asked for is a change to the **workflow itself** — a `wf-*` skill, a `wf-*`
+command, `.opencode/workflow/POLICY.md` or `PROJECT.md`, the task counter, the checkbox parser or
+the todo-sync plugin — **do not create a change.** Say so, and make the edit directly with a
+`docs(wf):` or `fix(wf):` commit and the workflow's own tests green.
+
+`POLICY.md`'s "The workflow is edited directly, never proposed" holds the reasoning and the three
+measurements behind it. Two things still apply: a change to the *project's* tooling is capped
+meta-work and does come here, and a change of workflow **direction** still owes a decision record.
+
 ## Steps
 
 1. **Establish what is being built.** If the input is not clear, ask — do not proceed on a

@@ -20,6 +20,7 @@
  * 3. No backticked shell command in the bundle names a runner that `PROJECT.md` does not declare.
  * 4. No path-like citation outside `PROJECT.md` names a host-project file.
  * 5. `PROJECT.template.md` declares the slots `POLICY.md` calls required.
+ * 6. No file in the bundle — **including its own tests** — reads a path outside `.opencode/`.
  *
  * # What it deliberately does not assert
  *
@@ -243,5 +244,50 @@ describe("PROJECT.template.md declares what POLICY.md requires", () => {
     const known = declared()
 
     expect(required.filter((slot) => !known.has(slot))).toEqual([])
+  })
+})
+
+describe("no bundle file reads a path outside .opencode/", () => {
+  /*
+   * `../` alone is fine (a plugin importing `../workflow/tasks.ts`); `../../` is not, because from
+   * any file in the bundle that is the host project. A fixture read from there passes where it was
+   * written and fails in every project that copies the bundle.
+   */
+  const ESCAPING = /["'`](\.\.\/){2,}[^"'`\n]*["'`]/g
+
+  /** Comments are stripped first: a comment describing an escaping path is not a dependency on one. */
+  function code(body: string): string {
+    return body.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "")
+  }
+
+  function sources(): { name: string; body: string }[] {
+    const out: { name: string; body: string }[] = []
+
+    for (const sub of ["tests", "plugins", "workflow"]) {
+      const dirPath = join(BUNDLE, sub)
+
+      for (const entry of readdirSync(dirPath)) {
+        if (!entry.endsWith(".ts")) continue
+
+        out.push({ name: `${sub}/${entry}`, body: read(join(dirPath, entry)) })
+      }
+    }
+
+    return out
+  }
+
+  for (const f of sources()) {
+    test(f.name, () => {
+      const escapes = [...code(f.body).matchAll(ESCAPING)].map(([m]) => m)
+
+      // Fails when a fixture reaches into the host project: add a `"../../changes/x/tasks.md"` read
+      // to any test and this reports it.
+      expect(escapes).toEqual([])
+    })
+  }
+
+  test("it is looking at the files it claims to", () => {
+    // A suite that globbed nothing would pass every assertion above vacuously.
+    expect(sources().length).toBeGreaterThanOrEqual(5)
   })
 })

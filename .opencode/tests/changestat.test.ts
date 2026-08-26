@@ -109,12 +109,25 @@ describe("listing", () => {
     expect(got.map((c) => c.name)).toEqual(["alpha", "zebra"])
   })
 
-  test("a missing root is an error, not an empty report", async () => {
+  test("a missing named root is an error, not an empty report", async () => {
     // "no active changes" and "you pointed me at the wrong directory" must not print the same
     // thing, because the first is the answer a caller acts on.
     const missing = join(root(), "nope")
 
     await expect(scan(missing)).rejects.toThrow("nope")
+  })
+
+  test("a missing default root is no active changes, not an error", async () => {
+    /*
+     * A project that has not started using the workflow has no changes/ directory, and every skill
+     * runs the counter at step 1 — so erroring here would make the first /wf-propose in a fresh
+     * project fail before it could create the directory it was about to create. Found by copying the
+     * bundle into a scratch project, not by reading.
+     *
+     * Fails without the `named` parameter's ENOENT branch: throws, and main returns EXIT_ERROR.
+     */
+    expect(await scan(join(root(), "nope"), false)).toEqual([])
+    expect(await main([])).toBe(0)
   })
 
   test("a change without tasks.md is reported rather than dropped", async () => {

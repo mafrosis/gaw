@@ -23,6 +23,13 @@
  * It refuses a root directory it cannot read rather than printing "no active changes". The two must
  * not look alike: the first is a mistyped path, the second is the answer a caller acts on. A green
  * report on a wrong input is worse than an error.
+ *
+ * That refusal is scoped to a root the **caller named**. A project that has not started using the
+ * workflow has no `changes/` directory, and every skill runs this at step 1 — so erroring on the
+ * default would make the first `/wf-propose` in a fresh project fail before it could create the
+ * directory it was about to create. An absent default is "no active changes"; an absent `-root` is
+ * still an error, because the caller asserted it exists. Found by copying the bundle into a scratch
+ * project and running it, which is the only way this shows up.
  */
 
 import { readdir, readFile, stat } from "node:fs/promises"
@@ -91,12 +98,15 @@ async function read(root: string, name: string): Promise<Change> {
  * scan reports every active change under root, ordered by name so the output is diffable. The
  * archive is excluded; see ARCHIVE_DIR.
  */
-export async function scan(root: string): Promise<Change[]> {
+export async function scan(root: string, named = true): Promise<Change[]> {
   let entries
 
   try {
     entries = await readdir(root, { withFileTypes: true })
   } catch (err) {
+    // An absent default root means the project has no changes yet; an absent named one is an error.
+    if (!named && (err as { code?: string }).code === "ENOENT") return []
+
     throw new Error(`reading ${root}: ${(err as { message?: string }).message ?? err}`)
   }
 
@@ -166,14 +176,15 @@ function has(argv: string[], name: string): boolean {
 }
 
 export async function main(argv: string[]): Promise<number> {
-  const root = flag(argv, "root") || DEFAULT_ROOT
+  const named = flag(argv, "root")
+  const root = named || DEFAULT_ROOT
   const name = flag(argv, "change") || ""
   const verify = has(argv, "verify")
 
   let found: Change[]
 
   try {
-    found = name !== "" ? await selected(root, name) : await scan(root)
+    found = name !== "" ? await selected(root, name) : await scan(root, named !== undefined)
   } catch (err) {
     console.error("changestat:", (err as { message?: string }).message ?? err)
 

@@ -41,11 +41,7 @@ import type { Plugin } from "@opencode-ai/plugin"
 import { readFile } from "node:fs/promises"
 import { basename } from "node:path"
 
-/**
- * The file this watches, named as the counter names it. Matched on basename, so it applies
- * to an active change and an archived one alike.
- */
-const TASKS_FILE = "tasks.md"
+import { split, TASK_ID, TASKS_FILE, type Tasks } from "../workflow/tasks.ts"
 
 /** The tools that can have written it. `bash` is not among them: the skills edit files with `edit`. */
 const EDIT_TOOLS = new Set(["edit", "write"])
@@ -53,8 +49,12 @@ const EDIT_TOOLS = new Set(["edit", "write"])
 /**
  * A task identifier: `4.1`, or `R2.13` for a review fix. It is the join key between a checkbox
  * line and its todo, which is why `wf-implement-change` requires a todo to be labelled with it.
+ *
+ * Imported from `../workflow/tasks.ts` rather than declared here, along with the checkbox parsing
+ * below. Two parsers of one file must agree on what a task is, or the two of them disagreeing
+ * becomes a third bug on top of the drift this is here to report — so there is one parser, and the
+ * agreement is a property of the code rather than a rule to remember.
  */
-const TASK_ID = /^(R?\d+(?:\.\d+)+)\b/i
 
 /** A todo is closed when it will not be worked again; `cancelled` counts, since nothing is pending. */
 const CLOSED = new Set(["completed", "cancelled"])
@@ -99,8 +99,6 @@ const COMMAND_ARG = "command"
  */
 const SCAN_TOOLS = new Set(["read", "edit", "write", "bash"])
 
-type Tasks = { ticked: Set<string>; unticked: Set<string> }
-
 /** A todo reduced to what the comparison needs: its task identifier and whether it is done with. */
 type Mirrored = { id: string; closed: boolean }
 
@@ -114,50 +112,6 @@ type Session = {
   seeded: boolean
   /** The last active `changes/<name>/tasks.md` this session was seen handling. */
   tasksPath?: string
-}
-
-/**
- * checkbox reports the mark inside a leading task checkbox, mirroring changestat's `checkbox`
- * exactly — both bullet characters, the mark at the front, the `]` behind it, and only at the
- * start of a line after indentation. Two parsers of one file must agree on what a task is, or the
- * two of them disagreeing becomes a third bug on top of the drift this is here to report.
- */
-function checkbox(line: string): string | undefined {
-  for (const bullet of ["- [", "* ["]) {
-    if (!line.startsWith(bullet)) continue
-
-    const rest = line.slice(bullet.length)
-    if (rest.length < 2 || rest[1] !== "]") return undefined
-
-    return rest[0]
-  }
-
-  return undefined
-}
-
-/**
- * parse splits a task list into the identifiers that are ticked and those that are not.
- *
- * A task line carrying no identifier is skipped rather than counted: it has no join key, so it
- * could only ever be reported as a phantom disagreement. The skills require a task line to carry
- * an identifier, and a `tasks.md` that stops doing so wants a skill fix, not a heuristic.
- */
-function parse(body: string): Tasks {
-  const ticked = new Set<string>()
-  const unticked = new Set<string>()
-
-  for (const line of body.split("\n")) {
-    const mark = checkbox(line.replace(/^[ \t]+/, ""))
-    if (mark === undefined) continue
-
-    const id = line.slice(line.indexOf("]") + 1).trimStart().match(TASK_ID)?.[1]
-    if (!id) continue
-
-    if (mark === "x" || mark === "X") ticked.add(id)
-    else unticked.add(id)
-  }
-
-  return { ticked, unticked }
 }
 
 /**
@@ -397,7 +351,7 @@ export const TasksTodoSync: Plugin = async ({ client }) => {
          * yields an empty drift from `compare` anyway — so the guard would be unobservable, and an
          * unobservable guard cannot be proven by a test that fails without it.
          */
-        const tasks = parse(await readFile(tasksPath, "utf8"))
+        const tasks = split(await readFile(tasksPath, "utf8"))
 
         const drift = compare(tasks, mirror)
         if (!drift) return
@@ -431,7 +385,7 @@ export const TasksTodoSync: Plugin = async ({ client }) => {
         const path = input.args?.filePath
         if (typeof path !== "string" || basename(path) !== TASKS_FILE) return
 
-        const tasks = parse(await readFile(path, "utf8"))
+        const tasks = split(await readFile(path, "utf8"))
         if (tasks.ticked.size + tasks.unticked.size === 0) return
 
         const todos = (await client.session.todo({ path: { id: input.sessionID } })).data ?? []

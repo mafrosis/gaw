@@ -13,6 +13,8 @@ project's; nothing here is specific to the repository it was written in.
 | `commands/wf-*.md` | the slash commands; each is a pointer to its skill |
 | `.opencode/workflow/POLICY.md` | the rules, project-neutral; not edited per project |
 | `.opencode/workflow/PROJECT.template.md` | every slot, empty; the project's copy is its own |
+| `.opencode/workflow/changestat.ts` | the task counter |
+| `.opencode/workflow/tasks.ts` | the checkbox parser, shared by the counter and the plugin |
 | `.opencode/workflow/decisions/` | decision-record templates, for a project with none |
 | `.opencode/plugins/tasks-todo-sync.ts` | reports when `tasks.md` and the session's todo list disagree |
 | `.opencode/tests/` | the bundle's own tests |
@@ -33,6 +35,26 @@ cp -R .opencode/workflow .opencode/tests "$DEST/.opencode/"
 Then copy `.opencode/workflow/PROJECT.template.md` to `.opencode/workflow/PROJECT.md` and
 fill in the tables: they are where the workflow's `{slot}` names resolve to this project's own
 commands and paths. `INSTALL.md` beside the template is the long version.
+
+## Counting tasks
+
+A change's `tasks.md` is the durable record of what is left, so every stage counts it rather than
+asking. The counter is bundled, and runs under the bun that opencode already carries, whatever the
+project's own stack is:
+
+```bash
+bun .opencode/workflow/changestat.ts                            # every active change, with progress
+bun .opencode/workflow/changestat.ts -change <name>             # one change
+bun .opencode/workflow/changestat.ts -change <name> -verify     # exit 2 while any task is open
+```
+
+`-verify` is what the archive stage gates on: exit 0 means every box is ticked, 2 means work
+remains, and 1 means it could not look — a bad argument, an unreadable root, an unknown change.
+Three exit codes rather than two, because a mistyped `-change` must not read as an unfinished
+change.
+
+It counts the `- [ ] N.X` and `- [ ] RN.X` checkbox forms through `tasks.ts`, the same parser the
+todo-sync plugin reads, so the counter and the plugin cannot disagree about what a task is.
 
 ## Declaring an invariants check
 
@@ -59,10 +81,11 @@ check.
 cd .opencode && bun test tests/
 ```
 
-They cover the todo-sync plugin.
+They cover the counter, the parser and the plugin.
 
 ## Changing the workflow
 
-Directly. A `wf-*` skill or a `wf-*` command is a direct commit: no change directory, no proposal,
-no review round. The workflow is prose, and running the pipeline on the pipeline costs more than
-the sentence it corrects.
+Directly. A `wf-*` skill, a `wf-*` command, `POLICY.md`, the counter, the parser or the plugin is a
+direct commit with the bundle's tests green: no change directory, no proposal, no review round. The
+workflow is prose, and running the pipeline on the pipeline costs more than the sentence it
+corrects.

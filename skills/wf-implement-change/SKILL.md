@@ -80,6 +80,9 @@ Implement tasks from a change.
    git commit -m "<type>(<scope>): <group summary> [<name>]"
    ```
 
+   If this is the **last** group of the session, step 7's `test_plan.md` is staged into this same
+   commit. Do step 7 first, so it is written before the commit rather than chased with a second one.
+
    **Reconcile the todo list against `tasks.md` as the first act of that commit**, before staging.
    This is the anchor: the checkbox is bundled into a commit and so cannot be skipped without the
    commit being wrong, where the todo list has nothing holding it — nothing in this loop ever reads
@@ -198,6 +201,11 @@ Implement tasks from a change.
 
 7. **Addendum — recommended test plan** (run when the apply session concludes: all tasks complete, or you're wrapping up a partial session)
 
+   **Write this before making the session's last task-group commit**, because it is staged *with*
+   that commit rather than after it. If the last group is already committed when you get here, stage
+   the test plan with the next group commit instead — do not make a commit that carries only the
+   test plan.
+
    a. Summarize the work completed this session, including any task groups left incomplete (see step 6).
 
    b. Present the user with a **Recommended Test Plan** — concrete steps and commands to verify
@@ -207,12 +215,18 @@ Implement tasks from a change.
 
    c. Write `changes/<name>/test_plan.md`. If it already exists, **merge** with the existing content (do not clobber it) so it stays a comprehensive test plan for future readers.
 
-   d. Commit it — per the Apply checkpoint in `POLICY.md`:
+   d. **Stage it with the group commit** — per the Apply checkpoint in `POLICY.md`:
       ```bash
-      git add "changes/<name>/test_plan.md"
-      git commit -m "docs(changes): test-plan <name>"
+      git add <this group's files> "changes/<name>/tasks.md" "changes/<name>/test_plan.md"
+      git commit -m "<type>(<scope>): <group summary> [<name>]"
       ```
-      Skip this commit if `test_plan.md` is unchanged. Defer the addendum if apply paused mid-task awaiting clarification.
+      The test plan describes the work in that commit, so it belongs in it. It used to get a commit
+      of its own, `docs(changes): test-plan <name>`, which meant every apply session left a
+      single-file commit in the log that every later reader has to read past — for a file that is
+      an artifact of the work beside it, not a change in its own right.
+
+      Nothing to do if `test_plan.md` is unchanged. Defer the addendum entirely if apply paused
+      mid-task awaiting clarification.
 
 8. **Close the report with a recommendation on whether to review**
 
@@ -303,7 +317,7 @@ Working on task 4/7: <task description>
 - <step / command 1>
 - <step / command 2>
 
-Test plan written to `test_plan.md`.
+Test plan written to `test_plan.md`, staged with this session's last task-group commit.
 
 ### Review Recommendation
 
@@ -382,7 +396,9 @@ What would you like to do?
   leaving it uncaptured makes the next change repeat it. A decision that changes *direction*
   escalates instead.
 - Pause on errors, blockers, or unclear requirements - don't guess
-- On wrap-up, present a recommended test plan and write/merge `changes/<name>/test_plan.md`, committing it per the Apply checkpoint in `POLICY.md` (`docs(changes): test-plan <name>`)
+- On wrap-up, present a recommended test plan and write/merge `changes/<name>/test_plan.md`,
+  **staged with the session's last task-group commit** and never as a commit of its own, per the
+  Apply checkpoint in `POLICY.md`. Write it before making that commit.
 - **Close the report with a review recommendation** (step 8): one of the three actions, how many
   of the four conditions are unmet, the six signals, and what would move it. Skipping names the
   cheaper check *in the recommendation itself* — a recommendation to skip with no named substitute

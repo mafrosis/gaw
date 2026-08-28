@@ -79,8 +79,12 @@ not ask for per-commit confirmation at these points.
    - Message: `<type>(<scope>): <group summary> [<change-name>]`
    - `<type>` is one of `feat` `fix` `refactor` `test` `docs` `build` `chore`
    - Commit only after the group's work satisfies its tasks — it builds and `{gate}` passes.
-   - At the end of an apply session, also write/merge `changes/<change-name>/test_plan.md` (a
-     recommended test plan) and commit it separately: `docs(changes): test-plan <change-name>`.
+   - At the end of an apply session, write/merge `changes/<change-name>/test_plan.md` and **stage
+     it with that session's last task-group commit**. It is not a commit of its own. The test plan
+     describes the work in that commit, so it belongs in it — and an extra commit per session that
+     touches one file is noise in the log that has to be read past forever. If the session ends
+     with no group commit to attach to, because it paused mid-group, the addendum waits for the
+     next one rather than manufacturing a commit to hold it.
 
 4. **Review** — after `/wf-review` writes findings, closes the trivial ones and records the rest
    as tasks, commit all of it **together**:

@@ -121,6 +121,45 @@ not ask for per-commit confirmation at these points.
   requested.
 - If a commit or a hook fails, fix forward with a new commit — do not amend the failed one.
 
+## Some classes of change are a direct commit
+
+A class of change whose rigour is **already mechanised** is a direct commit: no change directory,
+no proposal, no review round, no archive.
+
+This is never an exemption from rigour. It is a measurement of where a review round pays, and a
+class qualifies only when all four hold.
+
+1. **The failure a human reliably misses is already caught mechanically.** Not "there are tests" —
+   the specific mistake this class of change makes, caught by something that runs every time.
+2. **A regression fails the build, not a review.** Where the checking is a person reading, the
+   class does not qualify, because the person is the review round you were trying to skip.
+3. **A change in this class cannot break a test spuriously.** If it can, the class does not exist:
+   every change in it needs a reader anyway, and you have gained nothing.
+4. **What is left for a review round is something a review round actually catches.** This is the
+   one most often got wrong. A round cannot tell you whether a result looks good, or whether a
+   sentence reads well.
+
+Criterion 3 carries a consequence worth stating on its own, because it is the point at which a
+direct-commit class is most often abused. Since nothing in the class can trip a test spuriously, a
+test that *does* fail is a signal to **leave the class** — never to relax the test. The thing being
+changed is a contract someone reasoned about, and the reasoning is in the test beside it.
+
+**Every class names its escalations.** They are specific to the class, and they are the work the
+mechanised checks do *not* cover — typically anything that adds behaviour rather than adjusting
+the expression of behaviour already there. A class with no named escalations is not a class, it is
+an exemption.
+
+**A change of direction still gets a record, regardless of diff size.** A one-line diff that
+abandons a recorded direction owes one; a thousand-line diff that follows one does not. See "A
+decision the next change would re-litigate gets a record" below.
+
+What is being bought is iteration. A class that has to go through the pipeline dies at one
+proposal per nudge, and where the risk being gated is close to zero, that is the whole cost with
+none of the benefit.
+
+**Where a project declares its own classes:** `{project-rules}`. This workflow declares one for
+itself, below.
+
 ## The workflow is edited directly, never proposed
 
 **A change to the workflow itself is a direct commit.** No change directory, no proposal, no
@@ -132,8 +171,8 @@ review round, no archive.
 | **Message** | `docs(wf): <what>` for prose, `fix(wf): <what>` or `refactor(wf): <what>` for the executable parts |
 | **Gate** | `{workflow-test}` green, explicit paths staged |
 
-This is not an exemption from rigour. It is a measurement of where a review round pays, and
-three of them say it does not pay here.
+**How it qualifies against the four criteria above.** Criterion 4 carries most of the weight, and
+three measurements establish it.
 
 1. **The workflow is prose, and reviewing prose produces prose findings.** "A review reviews code,
    never the review record" below has the number: seven of eight findings across one change's
@@ -145,11 +184,10 @@ three of them say it does not pay here.
 3. **It is circular.** `/wf-review-proposal` reviewing a change to `/wf-review-proposal` is the
    instrument measuring itself, mid-edit, and a change that breaks the loop breaks its own review.
 
-What replaces the round is the same thing that replaces it for any direct commit: a test. The
-bundle's executable parts — the task counter, the checkbox parser, the todo-sync plugin — are
-covered by `{workflow-test}`, and `tests/self-contained.test.ts` fails when a skill cites a command
-or a path that `PROJECT.md` does not declare. That is the check a review round would not have
-performed anyway.
+Criteria 1 to 3 are met by `{workflow-test}`. The bundle's executable parts — the task counter, the
+checkbox parser, the todo-sync plugin — are covered by it, and `tests/self-contained.test.ts` fails
+when a skill cites a command or a path that `PROJECT.md` does not declare, which is the mistake this
+class of change actually makes and the one a review round would not have caught anyway.
 
 ### Three things this does not license
 

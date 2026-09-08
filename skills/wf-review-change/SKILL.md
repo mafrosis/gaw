@@ -181,7 +181,8 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
      documentation debt. Instruct it to return findings, not an essay: each finding is a
      claim plus its evidence, and nothing else
    - the workflow policy (`.opencode/workflow/POLICY.md`), the project slots (`PROJECT.md`) and
-     the relevant records in `{decisions-dir}`
+     the records in `{decisions-dir}` that `POLICY.md`'s *"Which records a design must account
+     for"* makes relevant
    - the grounding requirements below, which the subagent MUST report on explicitly
    - instruction to work through `tasks.md` sequentially, verify the implemented code adheres
      to the proposal and design, and **return markdown only (do not write files)** containing:
@@ -451,7 +452,8 @@ block — executable *and*, where review-derived, user-observable.
 
 - Favor simple, yet high quality code. Ensure the change delivers what its proposal promised.
 - Keep recommendations tightly scoped to the change's intended outcome.
-- Read `.opencode/workflow/POLICY.md` and `PROJECT.md`, then the relevant `{decisions-dir}` records.
+- Read `.opencode/workflow/POLICY.md` and `PROJECT.md`, then the `{decisions-dir}` records its
+  *"Which records a design must account for"* makes relevant.
 - **Never change production behaviour.** Nothing under `{production-roots}` except a file
   matching `{test-patterns}`. Those fixes are `RN.X` tasks implemented via `/wf-implement`, which
   is where the evidence gate lives.

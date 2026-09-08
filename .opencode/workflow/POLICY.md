@@ -432,6 +432,35 @@ reviewer's judgement added the task, and nothing would have caught it otherwise.
 each hand-wrote "add its row to the index" as a task, the last five of them consecutively, which
 is a standing obligation being rediscovered every time.
 
+### Which records a design must account for
+
+Every step above says to read "the relevant records". **Relevant is not a judgement about titles.
+It is derivable from the design's own text**, and the rule is:
+
+> A design must **account for every record in `{decisions-dir}` that mentions a symbol the design
+> names** — cited, amended, or explicitly listed as checked and not owed.
+
+Any of the three discharges it. What does not is silence, and the reason to state the rule as a
+property of the artifact rather than as a search is that a property is visible to the next reader
+where a search is visible only to whoever ran it.
+
+The measurement, from the change that made the rule necessary. Its design named a dependency's
+symbol **three times** and cited **eleven** records, none of them the one that already held the
+answer. Searching the records for that one symbol returned two, and the design cited the other. The
+record it missed carried the measured behaviour, the consequence for two of the change's own
+mechanisms, and the reason a third was immune — and the change spent two browser spikes
+rediscovering all of it, then wrote a design on a false claim about the dependency that a reviewer
+had asserted as "verified from source".
+
+Volume was not the cause and a reading list is not the cure: the corpus was not unusually large, and
+the step had already read six of them before stopping. What was missing was the step from *a symbol
+the design names* to *the records that mention it*.
+
+Note what the rule does **not** say. It does not ask for a record to be obeyed, only accounted for
+— "checked and not owed" is a complete answer and the cheapest one. And it says nothing about
+records a design does not name a symbol from, because a rule wide enough to cover those is one
+nobody can satisfy.
+
 ## Durable artifacts cite symbols, not lines
 
 `proposal.md`, `design.md` and `tasks.md` cite a **symbol** — a function, type, test or

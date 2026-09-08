@@ -33,7 +33,9 @@ available changes.
 
 - Favor straightforward, minimal implementations first; add complexity only when requested or clearly required.
 - Keep the proposal tightly scoped to the requested outcome.
-- Read `.opencode/workflow/POLICY.md` and `PROJECT.md`, then the relevant records in `{decisions-dir}`.
+- Read `.opencode/workflow/POLICY.md` and `PROJECT.md`, then the records in `{decisions-dir}` its
+  *"Which records a design must account for"* makes relevant — every one naming a symbol the design
+  names. A record the design does not account for is a finding.
 - Identify vague or ambiguous details and ask follow-up questions BEFORE any files change.
 - Review the codebase and ALWAYS prefer reusing existing patterns.
 - If the request changes the change's *intent* (not just refining it), recommend a fresh `/wf-propose` instead of patching.
@@ -92,7 +94,10 @@ available changes.
 3. **Read for context**
 
    - Read `changes/<name>/proposal.md`, `design.md` and `tasks.md`.
-   - Read `.opencode/workflow/POLICY.md` and `PROJECT.md`, then the relevant records in `{decisions-dir}`.
+   - Read `.opencode/workflow/POLICY.md` and `PROJECT.md`, then the records in `{decisions-dir}`
+     its *"Which records a design must account for"* makes relevant. Resolve them from the design's
+     own symbols rather than from titles: this step has read six records and missed the one that held
+     the answer, whose title named none of the subject.
    - Search the tests before proposing new behaviour: a claim the suite already pins does not
      need restating, and one it contradicts is the finding.
    - Explore the codebase (Grep/Glob/Read) so the plan aligns with implementation reality.

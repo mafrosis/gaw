@@ -50,9 +50,11 @@ meta-work and does come here, and a change of workflow **direction** still owes 
 2. **Check the name is free.** If `changes/<name>/` already exists, ask whether to continue
    that change or pick another name.
 
-3. **Read the ground truth before writing.** Root `POLICY.md`, the relevant records in
-   `{decisions-dir}`, and the code the change will touch. A proposal written without reading the
-   code is where scope errors come from.
+3. **Read the ground truth before writing.** Root `POLICY.md`, the records in `{decisions-dir}`
+   that `POLICY.md`'s *"Which records a design must account for"* makes relevant — every one naming
+   a symbol the design names — and the code the change will touch. A proposal written without
+   reading the code is where scope errors come from, and one written without that rule is how a
+   design ships a false claim about a dependency an accepted record already measured.
 
 4. **Create the directory and write the artifacts in order**, using the TodoWrite tool to
    track them. Each builds on the last, so write them in sequence and read what you wrote.
@@ -115,7 +117,8 @@ meta-work and does come here, and a change of workflow **direction** still owes 
     deliberately not built, an alternative measured and rejected)? Then a task in the group
     whose work makes that decision writes the record, and a task adds its row to
     `{decisions-index}`'s index.
-  - **Contradicting** — you have already read the relevant records in step 3. Name any whose
+  - **Contradicting** — step 3 has already resolved which records are relevant, by the rule in
+    `POLICY.md`. Account for every one of them here, and name any whose
     sentences this change makes false, and carry a task to mark each per
     `{decisions-index}`: status `Accepted (amended)`, an amendment block naming the amending
     record, and the index row. This half is the one that gets missed, because it is work on a

@@ -18,6 +18,7 @@
  * 5. No backticked path in the bundle names a host-project file.
  * 6. The template declares the slots `POLICY.md` calls required.
  * 7. No file in the bundle — including its own tests — reads a path outside `.opencode/`.
+ * 8. No portable prose file narrates the history of the project the bundle was written in.
  *
  * # What it deliberately does not assert
  *
@@ -231,6 +232,34 @@ describe("no backticked path names a host-project file", () => {
 
       // Fails when a host path comes back: plant `docs/adr/` in any skill and this reports it.
       expect(offending).toEqual([])
+    })
+  }
+})
+
+describe("no portable file narrates the history of the project it came from", () => {
+  /*
+   * A rule justified by an anecdote from the project the bundle was written in cites nothing the
+   * reader of a copy can look up. These phrases mark that narration: a reference to the source
+   * project, to a rule's previous wording, or to a specific review-fix task by its identifier. A
+   * rule may still give a general reason; it may not tell the story of how it was arrived at.
+   */
+  const NARRATION = [
+    /originating (repository|project)/i,
+    /this workflow was developed in/i,
+    /\bthe earlier (rule|wording|form)\b/i,
+    /\bthe rule (this|they) replaces?\b/i,
+    /\bused to (be|get|carry|demand|make)\b/i,
+    /\bin the session this\b/i,
+    /\bR\d+\.\d+\b/,
+  ]
+
+  for (const f of files()) {
+    test(f.name, () => {
+      const found = NARRATION.flatMap((re) => f.body.match(re)?.[0] ?? [])
+
+      // Fails when narration comes back: planting "In the originating repository, …" in POLICY.md
+      // turns this test red for that file.
+      expect(found).toEqual([])
     })
   }
 })

@@ -7,9 +7,9 @@
  *
  * Run with `cd .opencode && bun test tests/`.
  *
- * Each guard below has a mutation recorded on the test that proves it. The two that took a second
- * attempt are the interesting ones and both notes are kept: a test that passes because a file is
- * absent is not testing the guard it names, and two guards that mask each other are one guard.
+ * Each guard below has a mutation recorded on the test that proves it. Two notes are worth reading
+ * before adding another: a test that passes because a file is absent is not testing the guard it
+ * names, and two guards that mask each other are one guard.
  */
 
 import { describe, expect, test } from "bun:test"
@@ -487,10 +487,9 @@ describe("the drift it restates on every request", () => {
    * `typeof text !== "string"` in recordCandidate is a **narrowing, not a guard**, and this test
    * pins the behaviour rather than proving the line.
    *
-   * It was a guard until the whole hook body was wrapped: a non-string argument then reached
-   * `candidate`, `text.match` threw, and because the scraper ran ahead of the try the throw failed
-   * the tool call. Wrapped, the throw is swallowed and the outcome is identical either way — no
-   * candidate recorded, no report — so no test can fail without the line. It stays because
+   * The try wrapping the hook body subsumes it: without the line, `text.match` throws on a
+   * non-string, the throw is swallowed, and the outcome is identical — no candidate recorded, no
+   * report — so no test can fail without the line. It stays because
    * `candidate` takes a `string`, and it is documented here rather than defended by a vacuous
    * assertion. Same treatment as the `sessionID` narrowing in the transform hook.
    */
@@ -537,11 +536,11 @@ describe("the drift it restates on every request", () => {
   })
 
   /*
-   * Fails without the try wrapping recordCandidate.
+   * Fails without the try wrapping recordCandidate: the throw escapes, this rejects, and the tool
+   * call fails with it.
    *
    * A throwing property getter is the only way to reach a throw inside the scraper now that its two
-   * internal checks hold, and it is what makes the wrapper provable rather than assumed. Unwrapped,
-   * the scraper ran ahead of the try, so this rejected and the tool call failed with it.
+   * internal checks hold, and it is what makes the wrapper provable rather than assumed.
    */
   test("a hostile argument costs the reminder and not the tool call", async () => {
     const d = await driver()

@@ -5,32 +5,23 @@
  * `changes/<name>/tasks.md`, which are the durable record, and the harness todo list, which is a
  * session mirror of it so the user can see progress without reading the file.
  *
- * The two drift, and they drift in one direction, for a structural reason. The checkbox has a
- * mechanical anchor: `wf-implement-change` bundles it into the per-group commit, so it cannot be
- * skipped without the commit being wrong, and it stays visible in the diff forever. The todo has
- * no anchor at all — nothing in the loop ever reads it back. The apply session's own closing
- * report counts `N/M` from `tasks.md`, so it reads correct while the sidebar is stale, and the
- * only detector of the drift is a human looking at the sidebar.
+ * The two drift in one direction. The checkbox is bundled into the per-group commit, so it cannot
+ * be skipped without the commit being wrong. The todo has no anchor — nothing in the loop reads it
+ * back, and the closing report counts `N/M` from `tasks.md`, so it reads correct while the sidebar
+ * is stale.
  *
- * The skill states the rule five times (steps 3 and 4, and three guardrails). Restating it a
- * sixth time was the available option and it is the one with the worst record, because the rule
- * is read once at session start and has to survive competing with everything else for the rest of
- * the session. So this reports the fact at the moment it becomes true instead, in the result of
- * the very edit that caused it.
+ * A rule read once at session start does not survive the rest of the session, so this reports the
+ * fact at the moment it becomes true instead, in the result of the very edit that caused it.
  *
  * # What it cannot do
  *
  * It cannot fix the drift. The SDK exposes `session.todo` as a GET and there is no write
- * endpoint, so only the model can author the todo list via `todowrite`. Deriving the mirror
- * mechanically — the fix that would make the drift unrepresentable rather than merely reported —
- * is not available at this version. This is the next best thing: an unmissable fact rather than a
- * remembered rule.
+ * endpoint, so only the model can author the todo list via `todowrite`.
  *
  * # What it deliberately stays silent about
  *
- * An apply session that never seeded the list at all. That is `wf-implement-change`'s
- * most-broken guardrail, and it needs no detector: an empty sidebar is visible to the user from
- * the first turn. This covers the failure that is *invisible*, which is the one worth machinery.
+ * An apply session that never seeded the list at all: an empty sidebar is visible to the user from
+ * the first turn. This covers the failure that is *invisible*.
  *
  * Silence when in sync is the whole design. A reminder that fires on a correct edit teaches the
  * reader to skip it, and then it is worse than nothing — so every branch that is not a genuine

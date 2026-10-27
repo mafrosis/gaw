@@ -6,9 +6,5 @@ Enter explore mode: a thinking partner for ideas, problems and requirements.
 The argument after the command is the change name (kebab-case), or a description of
 what you want. If it is missing, infer it from the conversation; ask rather than guess.
 
-**Use the skill tool to load `wf-explore`, then follow it.** That skill is the single
-source of truth for this workflow step — this file deliberately carries no copy of it,
-because two copies drift and the copy is what gets read.
-
-The skill will send you to `.opencode/workflow/POLICY.md` for the workflow's rules and
-`.opencode/workflow/PROJECT.md` for what this project's `{slot}` names resolve to.
+**Use the skill tool to load `wf-explore`, then follow it.** The skill is the whole of this
+step; this file only points at it.

@@ -3,15 +3,8 @@
  *
  * Two things read that file mechanically: `changestat.ts`, which counts progress for the workflow
  * skills, and `../plugins/tasks-todo-sync.ts`, which compares the checkboxes against the session
- * todo list. Both used to carry their own copy of this logic — one in Go under `tools/`, one in
- * TypeScript in the plugin — with a comment in the plugin noting that "two parsers of one file must
- * agree on what a task is, or the two of them disagreeing becomes a third bug on top of the drift
- * this is here to report".
- *
- * That comment was a rule to remember. This module makes it a property of the code instead: there
- * is one implementation, so the two readers cannot disagree. It is also what makes the workflow
- * bundle portable — the Go tool needed a Go module, and this needs bun, which is present wherever
- * opencode is.
+ * todo list. Two parsers of one file would have to agree on what a task is; one parser makes that
+ * agreement a property of the code rather than a rule to remember.
  */
 
 /** The per-change task list. Fixed by the workflow, not a project slot. */
@@ -81,9 +74,8 @@ export type Tasks = { ticked: Set<string>; unticked: Set<string> }
  * split splits a task list into the identifiers that are ticked and those that are not.
  *
  * A task line carrying no identifier is skipped rather than counted: it has no join key, so it
- * could only ever be reported as a phantom disagreement by the plugin. Every task list this
- * workflow has written numbers its tasks, and a `tasks.md` that stops doing so wants a skill fix,
- * not a heuristic.
+ * could only ever be reported as a phantom disagreement by the plugin. The skills require task
+ * lines to be numbered.
  */
 export function split(body: string): Tasks {
   const result: Tasks = { ticked: new Set<string>(), unticked: new Set<string>() }

@@ -15,7 +15,8 @@ project's; nothing here is specific to the repository it was written in.
 | `.opencode/workflow/PROJECT.template.md` | every slot, empty; the project's copy is its own |
 | `.opencode/workflow/changestat.ts` | the task counter |
 | `.opencode/workflow/tasks.ts` | the checkbox parser, shared by the counter and the plugin |
-| `.opencode/workflow/decisions/` | decision-record templates, for a project with none |
+| `.opencode/workflow/decisions/` | decision-record templates, copied on first use |
+| `.opencode/workflow/invariants.template.md` | the invariants index, copied on first use |
 | `.opencode/plugins/tasks-todo-sync.ts` | reports when `tasks.md` and the session's todo list disagree |
 | `.opencode/tests/` | the bundle's own tests |
 
@@ -25,16 +26,16 @@ The skills and the commands live at this repository's root; in the project that 
 belong under `.opencode/`, which is where opencode looks. With `$DEST` the project's root:
 
 ```bash
-mkdir -p "$DEST/.opencode/skills" "$DEST/.opencode/commands" "$DEST/.opencode/plugins"
+mkdir -p "$DEST/.opencode/skills" "$DEST/.opencode/commands" "$DEST/.opencode/plugins" "$DEST/.opencode/agents"
 cp -R skills/wf-* "$DEST/.opencode/skills/"
 cp commands/wf-*.md "$DEST/.opencode/commands/"
+cp .opencode/agents/wf-stage.md "$DEST/.opencode/agents/"
 cp .opencode/plugins/tasks-todo-sync.ts "$DEST/.opencode/plugins/"
 cp -R .opencode/workflow .opencode/tests "$DEST/.opencode/"
 ```
 
-Then copy `.opencode/workflow/PROJECT.template.md` to `.opencode/workflow/PROJECT.md` and
-fill in the tables: they are where the workflow's `{slot}` names resolve to this project's own
-commands and paths. `INSTALL.md` beside the template is the long version.
+Then run any `/wf-*` command. The first one writes `.opencode/workflow/PROJECT.md` from the
+template, proposing a value for every slot and confirming it with you.
 
 ## Counting tasks
 
@@ -81,7 +82,10 @@ check.
 cd .opencode && bun test tests/
 ```
 
-They cover the counter, the parser and the plugin.
+They cover the counter, the parser and the plugin, and `self-contained.test.ts` is what stops the
+next edit reintroducing a dependency on a file that only exists in one project: every `{slot}` must
+be declared, no backticked command may name an undeclared runner, and no citation may name a
+host-project path.
 
 ## Changing the workflow
 

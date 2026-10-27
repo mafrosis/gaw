@@ -12,8 +12,9 @@ Implement tasks from a change.
 
 > **Read `.opencode/workflow/POLICY.md` and `.opencode/workflow/PROJECT.md` first.** POLICY.md
 > holds the workflow's rules; PROJECT.md resolves every `{slot}` below into this project's actual
-> command or path. A slot PROJECT.md leaves empty is **skipped, and you say it was skipped** —
-> an unrun check and a passing one must never read alike.
+> command or path. **If PROJECT.md is missing, or names paths this project does not have, run POLICY.md's
+> "Bootstrap" first.** A slot left empty or `none` is **skipped, and you say it was skipped** — an
+> unrun check and a passing one must never read alike.
 
 **Input**: Optionally specify a change name. If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available changes.
 
@@ -160,7 +161,7 @@ Implement tasks from a change.
       regenerates, so a stale one satisfies the condition silently. A unit whose floor is above
       zero is reported with its residue, not declared clean. Where `PROJECT.md` declares neither
       command, say the check was unavailable rather than passing over it.
-   c. **`{gate}` passes**, including any conditional command `PROJECT.md` names for the surface
+   c. **`{gate}` passes**, including every conditional gate `PROJECT.md` names for the surface
       touched, per `POLICY.md`.
    d. **The fix does only what the finding asked.** A fix that adds a mechanism, changes an
       interface, or refactors across package boundaries is not a review fix — it is new scope

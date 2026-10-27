@@ -7,9 +7,8 @@ reasoning behind the system's shape stays discoverable as it grows.
 We use the lightweight format popularized by Michael Nygard: each record has a **Status**,
 **Context**, **Decision**, and **Consequences**.
 
-> Copied from `.opencode/workflow/decisions/README.template.md`. Delete this line, and name this
-> directory and this file in `.opencode/workflow/PROJECT.md`'s `{decisions-dir}` and
-> `{decisions-index}` slots.
+> Copied from `.opencode/workflow/decisions/README.template.md` by the workflow's bootstrap.
+> Delete this note.
 
 ## Process
 
@@ -26,8 +25,6 @@ We use the lightweight format popularized by Michael Nygard: each record has a *
 
 **When a record is owed, when it must be amended, and how the amendment is marked are in
 `.opencode/workflow/POLICY.md` — "A decision the next change would re-litigate gets a record".**
-That is the single source for all three; this file deliberately carries no copy, because two
-copies drift and the copy is what gets read.
 
 ## Terminology
 

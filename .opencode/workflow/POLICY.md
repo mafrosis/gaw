@@ -12,9 +12,8 @@ Read this with `PROJECT.md`. Neither is complete alone.
 A name in braces is a **slot**, resolved through `PROJECT.md`:
 
 - `{format}` `{lint}` `{test}` — the three required commands.
-- `{gate}` — shorthand for `{format}` then `{lint}` then `{test}`, plus any conditional command
-  `PROJECT.md` declares for the surface being changed (`{integration-test}`, `{ui-test}`,
-  `{workflow-test}`).
+- `{gate}` — shorthand for `{format}` then `{lint}` then `{test}`, plus every row of
+  `PROJECT.md`'s "Conditional gates" table whose surface the change touches.
 - `{production-roots}` `{test-patterns}` — path sets, not commands.
 
 **A slot `PROJECT.md` leaves empty is skipped, and the step that wanted it says so.** An unrun
@@ -33,6 +32,49 @@ These are properties of the workflow, so a project does not get to configure the
 | `changes/archive/YYYY-MM-DD-<name>/` | where an archived change lands |
 | `- [ ] N.X` / `- [ ] RN.X` | the task and review-fix checkbox forms the counter and the plugin both parse |
 | `bun .opencode/workflow/changestat.ts [-change <name>] [-verify]` | the task counter: progress per change; `-verify` exits 2 while tasks remain, 1 when it cannot look |
+| `cd .opencode && bun test tests/` | the bundle's own tests — the gate for a workflow edit |
+
+## Bootstrap
+
+Every skill checks this before its first step. It is the only place the bundle creates files of
+its own, so a fresh project needs nothing but the copied `.opencode/` directory.
+
+### `PROJECT.md`
+
+Run this when `.opencode/workflow/PROJECT.md` is **missing**, or **stale** — any path its
+`{production-roots}` names does not exist here, which means it was copied from another project.
+
+1. Say which it is, and that bootstrap runs before the step that was asked for.
+2. Read how the project builds and tests itself: a Makefile or justfile, the scripts in
+   package.json, go.mod, pyproject.toml, Cargo.toml, the CI configuration, the README, and the
+   directory layout.
+3. Propose a value for every slot in `.opencode/workflow/PROJECT.template.md`. Prefer the
+   project's own entry point (a task-runner target over the command it wraps). Never invent a
+   command the project does not have; an optional slot with nothing to point at stays empty.
+4. Confirm with the **question** tool: one question for each required slot whose value is
+   uncertain, and the rest as one list to accept or amend.
+5. Write `PROJECT.md` from the template with the confirmed values. A required slot the project
+   has no command for is `none`, which every step reports as skipped.
+6. Check that each command's entry point exists — the target is in the Makefile, the script is
+   in package.json. Do not run the suites.
+7. Commit it alone, by explicit path: `docs(wf): bootstrap PROJECT.md`. Then carry on with the
+   step that was asked for.
+
+`/wf-explore` is read-only: it reports a missing or stale `PROJECT.md`, offers to bootstrap, and
+otherwise carries on without slots.
+
+### Everything else is created on first use
+
+| What | Absent means | Created by |
+|---|---|---|
+| `changes/` | no active changes | `/wf-propose`, when it writes the first change |
+| `changes/archive/` | nothing archived yet | `/wf-archive`, when it archives the first change |
+| `{decisions-dir}` (declared) | no records yet | the first task that writes a record: copy `.opencode/workflow/decisions/README.template.md` to `{decisions-index}` and `.opencode/workflow/decisions/0001-template.md` to `0001-record-architecture-decisions.md` in that directory, fill in the date, and delete the template's "Copied from" note |
+| `{invariants-index}` (declared) | no invariants recorded yet | the first task that adds a row: copy `.opencode/workflow/invariants.template.md` |
+
+A slot left empty creates nothing. With no `{decisions-dir}`, a durable decision is written into
+the change's `design.md` (see "A decision the next change would re-litigate gets a record"); with
+no `{invariants}`, say that the index rows were not checked mechanically.
 
 ## On the measurements in this file
 
@@ -170,7 +212,7 @@ review round, no archive.
 |---|---|
 | **Scope** | a `wf-*` skill, a `wf-*` command, anything under `.opencode/workflow/`, `tasks-todo-sync.ts`, the bundle's tests |
 | **Message** | `docs(wf): <what>` for prose, `fix(wf): <what>` or `refactor(wf): <what>` for the executable parts |
-| **Gate** | `{workflow-test}` green, explicit paths staged |
+| **Gate** | the bundle's tests (`cd .opencode && bun test tests/`) green, explicit paths staged |
 
 **How it qualifies against the four criteria above.** Criterion 4 carries most of the weight, and
 three measurements establish it.
@@ -185,8 +227,8 @@ three measurements establish it.
 3. **It is circular.** `/wf-review-proposal` reviewing a change to `/wf-review-proposal` is the
    instrument measuring itself, mid-edit, and a change that breaks the loop breaks its own review.
 
-Criteria 1 to 3 are met by `{workflow-test}`. The bundle's executable parts — the task counter, the
-checkbox parser, the todo-sync plugin — are covered by it, and `tests/self-contained.test.ts` fails
+Criteria 1 to 3 are met by the bundle's tests. The bundle's executable parts — the task counter, the
+checkbox parser, the todo-sync plugin — are covered by it, and `.opencode/tests/self-contained.test.ts` fails
 when a skill cites a command or a path that `PROJECT.md` does not declare, which is the mistake this
 class of change actually makes and the one a review round would not have caught anyway.
 
@@ -278,7 +320,7 @@ was raised against.
    `{coverage}` first is not optional — `{coverage-gaps}` reads a profile that nothing else
    regenerates, so a stale profile satisfies the condition silently. Where `PROJECT.md` declares
    neither, say the check was unavailable rather than passing over it.
-3. **`{gate}` passes**, including any conditional command for the surface touched.
+3. **`{gate}` passes**, including every conditional gate for the surface touched.
 4. **The fix does only what its finding asked.** A fix that adds a mechanism, changes an
    interface, or refactors across module boundaries is new scope wearing a fix's clothes —
    escalate it via `/wf-update` + `/wf-review-proposal` instead.

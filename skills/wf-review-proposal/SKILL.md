@@ -12,8 +12,9 @@ Provide a critical review of a change proposal BEFORE implementation, then refin
 
 > **Read `.opencode/workflow/POLICY.md` and `.opencode/workflow/PROJECT.md` first.** POLICY.md
 > holds the workflow's rules; PROJECT.md resolves every `{slot}` below into this project's actual
-> command or path. A slot PROJECT.md leaves empty is **skipped, and you say it was skipped** —
-> an unrun check and a passing one must never read alike.
+> command or path. **If PROJECT.md is missing, or names paths this project does not have, run POLICY.md's
+> "Bootstrap" first.** A slot left empty or `none` is **skipped, and you say it was skipped** — an
+> unrun check and a passing one must never read alike.
 
 This is an **agent-driven** operation. You critique the plan yourself (with full conversation
 context) and **rewrite the change's artifacts to correct what you found**. This step runs

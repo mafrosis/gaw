@@ -12,8 +12,9 @@ Review the implementation of a change for quality and adherence to what it propo
 
 > **Read `.opencode/workflow/POLICY.md` and `.opencode/workflow/PROJECT.md` first.** POLICY.md
 > holds the workflow's rules; PROJECT.md resolves every `{slot}` below into this project's actual
-> command or path. A slot PROJECT.md leaves empty is **skipped, and you say it was skipped** —
-> an unrun check and a passing one must never read alike.
+> command or path. **If PROJECT.md is missing, or names paths this project does not have, run POLICY.md's
+> "Bootstrap" first.** A slot left empty or `none` is **skipped, and you say it was skipped** — an
+> unrun check and a passing one must never read alike.
 
 This is an **agent-driven** operation. The deep review is delegated to the `general`
 subagent (Task tool); you orchestrate context resolution, then persist findings to
@@ -98,7 +99,7 @@ revision). See "The proposal is corrected before apply, not after" in
 **A fix this step makes is held to the same standard as an `RN.X` fix.** `POLICY.md`'s review-fix
 rules are not about which command applied the fix. So a test added here is confirmed red against
 the mutation it defends, with that mutation recorded in a comment on the test, and
-`{gate}` — including any conditional command `PROJECT.md` names for the surface touched —
+`{gate}` — including every conditional gate `PROJECT.md` names for the surface touched —
 passes before the commit. A trivial fix is trivial in size, never in evidence.
 
 **What is not under review, at all:**
@@ -196,7 +197,7 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
      e. a numbered list of recommended fixes (empty if none)
 
    **Grounding requirements.** State the result of each, and say plainly when one was not run:
-   - `{gate}`, including any conditional command `PROJECT.md` names for the surface touched
+   - `{gate}`, including every conditional gate `PROJECT.md` names for the surface touched
    - read `proposal.md`'s *What Changes* against the code, in both directions: promised and
      absent, and built but never asked for. Nothing checks this.
    - `{coverage}`, then `{coverage-gaps}` **once per touched package,
@@ -356,7 +357,7 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
    defends and record that mutation in a comment on the test — the same standard `/wf-implement`
    holds an `RN.X` fix to.
 
-   Then run `{gate}`, including any conditional command `PROJECT.md` names for the surface
+   Then run `{gate}`, including every conditional gate `PROJECT.md` names for the surface
    touched, plus `{invariants}` if a row moved. Do not proceed until all pass. A review that
    commits a red tree has done more damage than the finding it closed.
 

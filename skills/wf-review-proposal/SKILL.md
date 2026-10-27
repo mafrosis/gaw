@@ -22,9 +22,8 @@ context) and **rewrite the change's artifacts to correct what you found**. This 
 
 **Correcting the proposal here is the point of the step.** Nothing is built yet, so a task
 added or a design reworked costs only the edit. A review that finds a gap and leaves it in place
-has not saved work — it has moved the gap into
-apply, which is the one place it is expensive. See "The proposal is corrected before apply, not
-after" in `.opencode/workflow/POLICY.md`.
+has moved the gap into apply, where it is expensive. See "The proposal is corrected before apply,
+not after" in `.opencode/workflow/POLICY.md`.
 
 **Input**: Optionally specify a change name (e.g., `/wf-review-proposal add-auth`). If omitted,
 check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for
@@ -50,10 +49,9 @@ available changes.
   change adds get a test that would fail without it?
 * Codebase grounding — does it reuse existing patterns and fit current architecture?
 * Decision capture — does the plan record the decisions it makes, and mark the accepted records
-  it contradicts? This is the one obligation nobody downstream can discharge cheaply: `/wf-review`
-  is forbidden from authoring a record, and by then the reasoning is a week old. Judge it on
-  `POLICY.md`'s three tests, and treat an unanswered question as a finding — the proposal is
-  required to state that its decisions are local when they are.
+  it contradicts? Nobody downstream can discharge this cheaply: `/wf-review` may not author a
+  record. Judge it on `POLICY.md`'s three tests, and treat an unanswered question as a finding —
+  the proposal is required to state that its decisions are local when they are.
 
 **Steps**
 
@@ -65,12 +63,10 @@ available changes.
 
 2. **Pre-flight — establish what is still unbuilt**
 
-   **Clear the todo list first.** A list you find populated at this point is the previous session's
-   — this step has no `tasks.md` of its own to mirror until it has selected a change, and the plan it
-   is about to review is one nobody has started. Call **todowrite** with an empty list, or re-seed it
-   from *this* change's `tasks.md` once step 3 has read it. Working on top of an inherited list is
-   how a review of one change reports progress against another; the plugin states the list back to
-   you as this skill loads, so you have already been shown what you inherited.
+   **Clear the todo list first.** A list you find populated at this point belongs to an earlier
+   session, and the plan about to be reviewed is one nobody has started. Call **todowrite** with an
+   empty list, or re-seed it from *this* change's `tasks.md` once step 3 has read it, so a review of
+   one change never reports progress against another.
 
    ```bash
    bun .opencode/workflow/changestat.ts -change <name>
@@ -83,22 +79,18 @@ available changes.
      revision, or `/wf-review` for a code review.
    - **If a review escalated a `design` finding on an *unbuilt* task group**, review only that
      group. Announce the restriction: "Reviewing proposal: <name> (task group N only)". Touch no
-     artifact describing shipped work. This is the one path by which this step legitimately runs
-     on a change that is mid-flight, and it exists because `/wf-review` is required to escalate
-     design findings here rather than author them itself.
+     artifact describing shipped work. This is the one path by which this step runs on a change
+     that is mid-flight, because `/wf-review` escalates design findings here rather than authoring
+     them.
    - **If nothing is built, review the whole proposal** as normal.
-
-   A blanket "abort if any task is `- [x]`" was the earlier rule. It was overridden the first
-   time it collided with the escalation path above, which is worse than the rule not existing:
-   the reviewer improvised the scope instead of reading it.
 
 3. **Read for context**
 
    - Read `changes/<name>/proposal.md`, `design.md` and `tasks.md`.
    - Read `.opencode/workflow/POLICY.md` and `PROJECT.md`, then the records in `{decisions-dir}`
      its *"Which records a design must account for"* makes relevant. Resolve them from the design's
-     own symbols rather than from titles: this step has read six records and missed the one that held
-     the answer, whose title named none of the subject.
+     own symbols rather than from titles — a record's title often names none of what it
+     constrains.
    - Search the tests before proposing new behaviour: a claim the suite already pins does not
      need restating, and one it contradicts is the finding.
    - Explore the codebase (Grep/Glob/Read) so the plan aligns with implementation reality.
@@ -129,9 +121,7 @@ available changes.
      question — another change holds a file it needs, a decision is pending elsewhere — that is
      `Refine` with a `Precondition:`, not `Rework`. `Rework` says the plan is wrong, and returning
      it for a scheduling fact discards a plan whose findings this step has just verified.
-   - **Net task count is not the test.** An earlier rule made `Refine` unavailable whenever the
-     revisions added more tasks than they removed, which forced a review that found one missing
-     task to discard the whole reviewed plan. Count is not scope; the objective is.
+   - **Net task count is not the test.** Count is not scope; the objective is.
    - **State each finding once, at the length its severity earns.** A finding whose fix changes
      executable behaviour gets its evidence and reproduction; documentation debt gets one line.
      Do not inventory what is correct and do not praise.
@@ -145,10 +135,8 @@ available changes.
      Then read every other artifact against each edit, in **any** direction — a revised task may
      require a revised design, not only the reverse — and correct what the edit made incoherent.
    - **A precondition that is not `none` is written into `proposal.md`** as a status line at the
-     top: what must land first, and what clears it. The output block is a chat message and
-     survives one session; the artifact is what the next reader sees, and what `/wf-implement`
-     reads at its own step 2 before it seeds a single todo. A precondition announced and not
-     written down is parking with no record, which the next reader pays to rediscover.
+     top: what must land first, and what clears it. The output block is a chat message; the
+     artifact is what the next reader sees, and what `/wf-implement` reads before it starts.
    - **A missing whole artifact** (e.g. no `design.md` at all): write it if the change needs one,
      following `wf-propose-change`'s guidance for that artifact.
    - **A large multi-artifact reconciliation** may be delegated to the `wf-update-change`
@@ -228,10 +216,9 @@ carried by `Precondition:` in the output block — so "right, and waiting on ano
 - **A precondition never defers a finding.** Parking a change is a scheduling act; leaving its plan
   uncorrected is the failure `POLICY.md`'s *"The proposal is corrected before apply, not after"*
   names. The findings are closed here, whatever the plan is waiting on — by the time the
-  precondition clears, this reading of the code is weeks old and has to be redone to be trusted.
+  precondition clears, this reading of the code is stale.
 - **A revision that pursues a new objective is `Rework`**, however few tasks it adds.
 - NEVER edit code.
 - Reuse the existing tests and code patterns; do not invent parallels.
 - **Do not write a scenario for behaviour that does not exist** unless a task in the same plan
-  builds it. That asymmetry — a requirement written as an aspiration — is what turned one review
-  finding into nine tasks of unproposed production work.
+  builds it. A requirement written as an aspiration becomes a mandate for unproposed work.

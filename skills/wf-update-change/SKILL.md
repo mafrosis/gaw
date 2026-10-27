@@ -32,17 +32,13 @@ ambiguous you MUST ask rather than guess.
    **A revision to `tasks.md` obliges a re-seed of the todo list — but only once the change has
    started**, which means at least one task in `tasks.md` is ticked. When one is, re-seed from the
    file and in file order, before this step reports: `tasks.md` is authoritative and the list mirrors
-   it, so renumbering, splitting or dropping a task leaves any list held by this session or the one
-   that resumes after it describing tasks that no longer exist. Re-seed from the file; never edit the
-   file to match a list.
+   it, so renumbering, splitting or dropping a task leaves the list describing tasks that no longer
+   exist. Re-seed from the file; never edit the file to match a list.
 
-   **When nothing is ticked, seed nothing.** There is no progress to mirror, `/wf-implement` seeds
-   the list from `tasks.md` at its own step 3 before it writes any code, and `/wf-review-proposal`
-   clears it at its step 2 on the way there — so a list created here is a mirror nobody reads that
-   the next step throws away. Nor is it needed to keep the plugin quiet: `tasks-todo-sync` reports
-   drift only against a list that already carries task identifiers, so an empty one raises nothing.
-   A list you *find* populated on an unstarted change belongs to an earlier session and not to this
-   change; say so and leave it, and never extend it with tasks from this one.
+   **When nothing is ticked, seed nothing.** There is no progress to mirror, and `/wf-implement`
+   seeds the list itself before it writes any code. A list you *find* populated on an unstarted
+   change belongs to an earlier session; say so and leave it, and never extend it with tasks from
+   this one.
 
 3. **Understand the request.**
    - A specific revision ("the design now uses X") is the starting edit.
@@ -71,8 +67,7 @@ ambiguous you MUST ask rather than guess.
 
 7. **Point at the next step, without acting on it.**
    - Revising a design because `/wf-review` escalated a `design` finding → `/wf-review-proposal`
-     on the affected unbuilt task group, then `/wf-implement`. This step is half of that
-     escalation; reviewing the revised design is the other half, and skipping it puts
+     on the affected unbuilt task group, then `/wf-implement`. Skipping the review puts
      unreviewed design into the tree.
    - Change already implemented → the code may no longer match the revised plan; `/wf-implement`
      carries the delta into code.

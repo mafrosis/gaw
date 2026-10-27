@@ -24,10 +24,9 @@ A change lives in `changes/<name>/` and holds exactly three artifacts:
 | `design.md` | **how** — decisions, alternatives, risks |
 | `tasks.md` | the ordered checklist that `/wf-implement` works through |
 
-There is no spec artifact — see `POLICY.md`'s "Behaviour is described by tests, not by a spec
-corpus". Behaviour is described by tests, which cannot go stale because they fail, and decisions
-live in `{decisions-dir}`, which are dated and allowed to age. A proposal that wants to state a
-behavioural contract states it as a task that writes a failing test.
+There is no spec artifact — see `POLICY.md`'s "Behaviour is described by tests". A proposal that
+wants to state a behavioural contract states it as a task that writes a failing test; a decision
+that outlives the change goes in `{decisions-dir}`.
 
 **Input**: a change name (kebab-case), or a description to derive one from.
 
@@ -38,9 +37,9 @@ command, `.opencode/workflow/POLICY.md` or `PROJECT.md`, the task counter, the c
 the todo-sync plugin — **do not create a change.** Say so, and make the edit directly with a
 `docs(wf):` or `fix(wf):` commit and the workflow's own tests green.
 
-`POLICY.md`'s "The workflow is edited directly, never proposed" holds the reasoning and the three
-measurements behind it. Two things still apply: a change to the *project's* tooling is capped
-meta-work and does come here, and a change of workflow **direction** still owes a decision record.
+See `POLICY.md`'s "The workflow is edited directly, never proposed". Two things still come here:
+a change to the *project's* tooling (capped meta-work), and a change of workflow **direction**
+still owes a decision record.
 
 ## Steps
 
@@ -51,14 +50,13 @@ meta-work and does come here, and a change of workflow **direction** still owes 
 2. **Check the name is free.** If `changes/<name>/` already exists, ask whether to continue
    that change or pick another name.
 
-3. **Read the ground truth before writing.** Root `POLICY.md`, the records in `{decisions-dir}`
-   that `POLICY.md`'s *"Which records a design must account for"* makes relevant — every one naming
-   a symbol the design names — and the code the change will touch. A proposal written without
-   reading the code is where scope errors come from, and one written without that rule is how a
-   design ships a false claim about a dependency an accepted record already measured.
+3. **Read the ground truth before writing.** `POLICY.md`, the records in `{decisions-dir}` that
+   `POLICY.md`'s *"Which records a design must account for"* makes relevant — every one naming a
+   symbol the design names — and the code the change will touch. A proposal written without
+   reading the code is where scope errors come from.
 
-4. **Create the directory and write the artifacts in order**, using the TodoWrite tool to
-   track them. Each builds on the last, so write them in sequence and read what you wrote.
+4. **Create the directory and write the artifacts in order** — `mkdir -p changes/<name>`
+   creates `changes/` too on a project's first change — using the TodoWrite tool to track them. Each builds on the last, so write them in sequence and read what you wrote.
 
    **`proposal.md`** — sections:
    - **Why**: the problem or opportunity, in one or two sentences. Why now?
@@ -108,7 +106,9 @@ meta-work and does come here, and a change of workflow **direction** still owes 
 - Durable artifacts cite **symbols**, never `file:line` — a line number is a scheduled
   drift report (`POLICY.md`).
 - Record architectural decisions in `{decisions-dir}`, not in the change. A change's design is
-  how *this* change works; an ADR is a decision the repository keeps.
+  how *this* change works; a decision record is one the repository keeps. If `{decisions-dir}` is
+  declared but does not exist yet, the task that writes the first record creates it from the
+  templates (`POLICY.md`'s "Bootstrap"); if it is empty, durable decisions go in `design.md`.
 - **Ask the ADR question explicitly, in both directions, and write the answer as a task.**
   `POLICY.md`'s "A decision the next change would re-litigate gets a record" holds the three
   tests and the amendment trigger; apply them here, because this is the cheapest point at
@@ -117,20 +117,19 @@ meta-work and does come here, and a change of workflow **direction** still owes 
     proposed yet, or that will be evidenced only by an absence (a refusal, a thing
     deliberately not built, an alternative measured and rejected)? Then a task in the group
     whose work makes that decision writes the record, and a task adds its row to
-    `{decisions-index}`'s index.
-  - **Contradicting** — step 3 has already resolved which records are relevant, by the rule in
-    `POLICY.md`. Account for every one of them here, and name any whose
-    sentences this change makes false, and carry a task to mark each per
-    `{decisions-index}`: status `Accepted (amended)`, an amendment block naming the amending
-    record, and the index row. This half is the one that gets missed, because it is work on a
-    file the change is not otherwise touching.
+    `{decisions-index}`.
+  - **Contradicting** — step 3 has already resolved which records are relevant. Account for
+    every one of them here, name any whose sentences this change makes false, and carry a task to
+    mark each per `POLICY.md`: status `Accepted (amended)`, an amendment block naming the amending
+    record, and the `{decisions-index}` row. This is the half that gets missed, because it is work
+    on a file the change is not otherwise touching.
   - A change that decides nothing durable says so in `design.md` — under Decisions, that its
     decisions are local to this change. An unstated answer is indistinguishable from a
-    forgotten one, which is what `/wf-review-proposal` would otherwise have to guess at.
+    forgotten one.
 - A change that introduces or alters a **universal invariant** — a claim quantified over a
   set the code can enumerate, "every write validates its identifier" — carries a task to add
-  or update its row in `{invariants-index}`. `{invariants}` and `{test}` check the
-  rows resolve; nothing checks that a missing row was noticed, which is why it is a task.
-  Two mechanisms that look like the right answer here and are not — a validating newtype and
-  a route table with a flag — are recorded in `POLICY.md` with the measurements that rejected
-  them. Read that before proposing either.
+  or update its row in `{invariants-index}`. `{invariants}` checks the rows
+  resolve; nothing checks that a missing row was noticed, which is why it is a task. If the index
+  does not exist yet, that task creates it from the template (`POLICY.md`'s "Bootstrap"). Before
+  proposing a type to hold the invariant, read `POLICY.md`'s "Check that option 1 really is
+  option 1".

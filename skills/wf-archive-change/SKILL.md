@@ -17,7 +17,8 @@ Archive a completed change by moving it under `changes/archive/`.
 > unrun check and a passing one must never read alike.
 
 Archiving is only bookkeeping: it moves a directory and commits. Nothing is merged anywhere —
-the change's own artifacts, and the code and tests they produced, are the record.
+the change's own artifacts, and the code and tests they produced, are the record. `changes/archive/`
+is created by the first archive.
 
 **Input**: optionally a change name. If omitted, infer it from the conversation; if that is
 ambiguous you MUST ask rather than guess.
@@ -39,13 +40,12 @@ ambiguous you MUST ask rather than guess.
    Report the count. Incomplete tasks are a warning, not a block — confirm with the user
    before proceeding.
 
-   **Clear the todo list as the last act of the archive.** The `git mv` moves `tasks.md` under
-   `changes/archive/`, so every todo in the list now mirrors a file that no longer exists at the path
-   it was read from. An empty list is the correct state for a finished change, and leaving the old one
-   behind is what hands the next session a populated, plausible list belonging to work that is done.
+   **Clear the todo list as the last act of the archive.** The move takes `tasks.md` out of
+   `changes/<name>/`, so every todo now mirrors a file that is no longer there; an empty list is the
+   correct state for a finished change.
 
-   Remember what a ticked box is: a claim that the work was done, not evidence of it. The
-   review gate below is what judges the work.
+   A ticked box is a claim that the work was done, not evidence of it. The review gate below is
+   what judges the work.
 
 4. **Hard review gate — a code change MUST be reviewed before archiving.**
 
@@ -112,9 +112,9 @@ Run /wf-review <name> first, then re-run /wf-archive.
 - **The review gate is a hard block.** Never archive a change containing code without
   `review.md`. Fail closed when unsure.
 - Use `git mv` so the change's history follows it.
-- Run `{invariants}`. If the change added or altered a universal invariant and
-  `{invariants-index}` has no row for it, say so and confirm before archiving: the index is
-  the only place that answers "what enforces this claim" once the change is archived.
+- Run `{invariants}`, or say it is not declared. If the change added or altered a universal
+  invariant and `{invariants-index}` has no row for it, say so and confirm before archiving: the
+  index is the only place that answers "what enforces this claim" once the change is archived.
 - **Ask the ADR question once more, because this is the last point the change's context is in
   hand.** Read the change's `design.md` Decisions and its `review.md` findings against
   `POLICY.md`'s three tests: a decision that constrains a change nobody has proposed yet, one
@@ -122,6 +122,6 @@ Run /wf-review <name> first, then re-run /wf-archive.
   written — or an accepted record the change contradicted is still unmarked — say so and use the
   **question** tool before archiving. This informs and confirms; it does not block. Once the
   directory moves, the reasoning survives only in `changes/archive/`, which nobody reads while
-  deciding the next change, and reconstructing it later produces a guess with a date on it.
+  deciding the next change.
 - Stage explicit paths, and do not sweep unrelated work into the archive commit — another
   session may have staged files.

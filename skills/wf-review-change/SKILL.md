@@ -22,7 +22,7 @@ subagent (Task tool); you orchestrate context resolution, then persist findings 
 `tasks.md` for `/wf-implement`.
 
 This step **never changes production behaviour**. It may fix a test or a document; a fix that
-alters what the service does is a task, always. That line is the whole of the rule, and step 5
+alters what the software does is a task, always. That line is the whole of the rule, and step 5
 routes every finding by it.
 
 **Input**: Optionally specify a change name (e.g., `/wf-review add-auth`). If omitted,
@@ -46,8 +46,8 @@ pass while they are present.
 
 1. **A guard with no test that fails when the guard is removed.** Coverage cannot see this: a
    line executed by a test that would pass without it reads exactly like a pinned line.
-   Establish this by **mutation** — delete or inverse the guard in a scratch copy, run the
-   package, restore. Report per guard, not per package.
+   Establish this by **mutation** — delete or invert the guard, run the suite, restore. Report
+   per guard, not per module.
 
    This is the class that matters most, because a test is the only durable statement of intended
    behaviour a project keeps — see `POLICY.md`'s "Behaviour is described by tests". A behaviour
@@ -61,11 +61,6 @@ pass while they are present.
    Work no proposal asked for is scope that arrived without a decision — see the provenance
    gate in step 5. Recommending that it be completed requires naming the user-visible
    consequence of its absence.
-
-   Stated as a default because the expensive branch became one by accident. A review fix once
-   claimed more than the code did; two rounds later a nine-task group existed to close the gap,
-   and nobody weighed deleting the claim against writing production code for a surface whose
-   callers did not exist.
 
 **What is under review**
 
@@ -115,19 +110,14 @@ passes before the commit. A trivial fix is trivial in size, never in evidence.
 - **`test_plan.md`, beyond a command that does not run.** A stale sentence in it is not worth a
   round.
 
-The reason is measured. Reviewing prose produces prose findings, whose fixes are more prose,
-which the next round then verifies — seven of the eight findings across one change's rounds 2–4
-were prose-versus-code mismatches and not one was a service defect. Judge the **code** against
-the tests and the proposal. If a document disagrees with the code, the finding is one line
-naming both.
+Reviewing prose produces prose findings, whose fixes are more prose, which the next round then
+verifies. Judge the **code** against the tests and the proposal. If a document disagrees with the
+code, the finding is one line naming both.
 
 **Brevity is a correctness property of a review, not a courtesy**
 
-Artifact volume predicts review rounds almost exactly across the originating repository's history:
-472 lines → 1 round, 1,365 → 1, 2,267 → 2, 3,240 → 3, 3,881 → 4. Prose makes claims, the next round
-verifies claims and finds the drift the prose created. The worst instance reached 1,561 lines and
-16,330 words to yield 69 tasks against 2,990 lines of production code — every finding written twice
-at near-full length, once in `review.md` and again in its task, about 330 words each.
+Prose makes claims, and the next round verifies the claims and finds the drift the prose created —
+so artifact volume drives review rounds.
 
 - **State each finding once**, in `review.md`. The task is the action in one line, never a
   restatement of the evidence.
@@ -177,7 +167,7 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
    - the change name and its artifact paths (proposal, design, tasks)
    - the Focus Areas above **and the two classes no mechanical check can find**
    - **what is under review and what is not** — in particular that `review.md` is never a
-     source of findings, and that prose findings are the loop this workflow already paid for
+     source of findings, and that prose findings breed more prose findings
    - **the brevity rules above**, including the budget and the one-line rule for
      documentation debt. Instruct it to return findings, not an essay: each finding is a
      claim plus its evidence, and nothing else
@@ -200,14 +190,16 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
    - `{gate}`, including every conditional gate `PROJECT.md` names for the surface touched
    - read `proposal.md`'s *What Changes* against the code, in both directions: promised and
      absent, and built but never asked for. Nothing checks this.
-   - `{coverage}`, then `{coverage-gaps}` **once per touched package,
-     separately**. A space-separated list is not a substitute; report the per-package output.
+   - `{coverage}`, then `{coverage-gaps}` **once per touched package or module, separately**. A
+     space-separated list is not a substitute; report each output. Where neither is declared, say
+     so.
    - mutation of every guard the change added, per class 1 above
    - `git status --short` before returning, with the result stated. `general` has write access,
-     so a mutation session's restores are verified rather than assumed — twenty-six edits to
-     invert thirteen guards, and a missed restore is silent whenever the suite still passes. If
-     the tree differs from how the round found it, that goes at the top of the report.
-   - `{invariants}`, and read `{invariants-index}` against the change in both directions:
+     so a mutation session's restores are verified rather than assumed — a missed restore is
+     silent whenever the suite still passes. If the tree differs from how the round found it,
+     that goes at the top of the report.
+   - `{invariants}` (or say it is not declared), and read `{invariants-index}` against the change
+     in both directions:
      a universal invariant the change introduced or altered with no row, and a row the change
      made wrong. The checker resolves citations, so it catches a renamed test; nothing catches
      a row that was never added, or one whose claim the change quietly narrowed.
@@ -218,8 +210,7 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
      routes in step 5 — marking a contradicted record is route A, a missing record is route C.
    - if the review is `N > 1`, judge each `R(N-1).X` item as *genuinely fixed* rather than
      ticked, by mutation — and check whether the fix itself introduced a new instance of
-     either class. Every regression in the originating repository's history arrived in a review
-     fix, not in an apply.
+     either class. Review fixes are where regressions most often enter.
    - a tool that reports "no findings" is not evidence until you have seen it report a
      finding you planted. An empty report and a broken invocation are indistinguishable.
 
@@ -232,12 +223,11 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
 
    - `docs` — a wrong or stale sentence in `{operator-docs}`, a code comment, or an
      `{invariants-index}` row. Correct it.
-   - `docs` — **an accepted ADR the shipped change made false.** Mark it per `{decisions-index}`:
-     status `Accepted (amended)`, an amendment block naming the amending record, the index row. This
-     is bookkeeping on a record whose decision was already taken, not design authorship, and the
-     index's amendment process explicitly provides for it. It is on this route because the
-     alternative is a record that states something the code no longer does, which is the exact
-     failure a spec corpus gets deleted for.
+   - `docs` — **an accepted decision record the shipped change made false.** Mark it per
+     `POLICY.md`: status `Accepted (amended)`, an amendment block naming the amending record, the
+     `{decisions-index}` row. This is bookkeeping on a record whose decision was already taken,
+     not design authorship; leaving it unmarked leaves a record stating something the code no
+     longer does.
    - `verification` where the fix is **test-only and additive** — a missing case, a mutation
      comment that was never recorded, a vacuous assertion to delete.
    - `cleanup` that touches only prose or comments.
@@ -258,7 +248,7 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
    **Route B — `task`. Write the `RN.X` line without asking.**
 
    - `correctness` — a bug. Always a task, however small, because the fix changes what the
-     service does and that is what `/wf-implement`'s evidence gate exists for.
+     software does and that is what `/wf-implement`'s evidence gate exists for.
    - A **defect in what was implemented against what the proposal promised** — something
      promised and absent, or built and not asked for. The proposal is not in question here;
      the code's adherence to it is.
@@ -271,7 +261,7 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
    Three kinds of finding reach the user:
 
    - **A material finding about functionality whose resolution may need the plan changed** —
-     it adds a mechanism, changes an interface, or refactors across a package boundary. This is
+     it adds a mechanism, changes an interface, or refactors across a module boundary. This is
      the `design` tag. Recommend `/wf-update` then `/wf-review-proposal` so the new design is
      reviewed before it is written; a mechanism authored in a review fix is unreviewed design
      entering the tree at the one point in the workflow with no design gate.
@@ -282,53 +272,35 @@ at near-full length, once in `review.md` and again in its task, about 330 words 
      tests and neither the proposal nor the apply session captured it. Say what the decision was,
      what the alternative was, and recommend `/wf-update` to add the task. **Do not write the
      record.** A review may mark a record the change contradicted (route A) but may not author a
-     new one: every regression traceable to a review fix in the originating repository came from
-     a review authoring rather than reporting, and a decision record written by a reader reconstructing
-     intent is a guess with a date on it.
+     new one: a decision record written by a reader reconstructing intent is a guess with a date
+     on it.
 
    **The resolution you recommend sets the route, not the most expensive one available.** A
    finding closable either by correcting a document or by adding a mechanism is `docs`, and it
    goes to route A. Record the mechanism as the alternative; the user *choosing* it is what
-   escalates. Routing by the expensive branch sent a one-sentence correction through
-   `/wf-update` + `/wf-review-proposal` for two reviews running, because the branch nobody
-   recommended set the route.
+   escalates.
 
-   **Deferred, and on no route.** `cleanup` that touches code structure — duplication, renames, a
-   refactor — is listed in a `Deferred — follow-up change` subsection of `review.md` and becomes
-   neither a fix nor a task unless the user asks. Shipping twenty cosmetic edits alongside five bug
-   fixes gives the cosmetic ones the same commit-and-move-on treatment as the bugs, and the
-   originating repository's regressions came from exactly that: two small tidy-ups, each of which
-   shipped a regression.
+   **Deferred, and on no route.** `cleanup` that touches code structure — duplication, renames,
+   a refactor — is listed in a `Deferred — follow-up change` subsection of `review.md` and
+   becomes neither a fix nor a task unless the user asks. Cosmetic edits shipped alongside bug
+   fixes get the same commit-and-move-on treatment as the bugs, and that is where a tidy-up
+   introduces a regression.
 
-   **Why routes A and B do not ask.** The rule they replace made every finding a question, on
-   the grounds that "a review that writes its own task list converts every observation into
-   committed work" — three rounds on one change produced 21 tasks
-   that way and 14 were later dropped. That evidence is real but it indicts the *cleanup* class,
-   which is why cleanups are still deferred and still unasked-for. It says nothing about a bug
-   or a stale comment. Gating those on a question bought no scheduling decision and cost a round
-   trip every time.
+   **Why routes A and B do not ask.** A bug is always a task and a stale comment is always a fix;
+   asking about either buys no scheduling decision and costs a round trip. Cleanups, which *do*
+   turn observations into unrequested work, are the class that is deferred.
 
    **Provenance gate — is the finding against work anyone asked for?**
 
-   Work is **review-derived** if its task group is not traceable to `proposal.md`'s *What
-   Changes*. Read the proposal against `tasks.md`; this needs no tooling and no git archaeology.
-
-   A finding against review-derived work may **not** be `Blocking` unless it names a defect
-   **observable by a user of the service**. Otherwise it is documentation debt — or, better, the
-   work itself is dropped, and dropping it is the recommendation to make, because no proposal
-   asked for it.
+   Apply `POLICY.md`'s "Review-derived work and the provenance gate". Work is **review-derived** if
+   its task group is not traceable to `proposal.md`'s *What Changes*; a finding against it may not
+   be `Blocking` unless it names a defect **observable by a user of the software**, and dropping
+   the work is the preferred recommendation.
 
    Report the count: `Findings against review-derived work: n of m`. If most of a round's
-   findings are review-derived, **that is the headline finding.** The change's own scope is
-   finished and the review has begun reviewing the review's own accumulation. Say so plainly and
-   recommend closing the change rather than fixing the tail.
-
-   This is the termination condition, and it is why there is no cap on review rounds. A round limit
-   is arbitrary and cuts good rounds off with bad. Provenance is not. In the case this was measured
-   on, rounds 1–3 reviewed proposed work and found three user-visible defects — they paid for
-   themselves. Round 4 found one user-observable defect and five items of bookkeeping against a task
-   group that a review had created four days earlier, and its own text planned a round five. The
-   difference between those rounds is provenance, not number.
+   findings are review-derived, **that is the headline finding** — recommend closing the change
+   rather than fixing the tail. This is the termination condition, and why there is no cap on
+   review rounds.
 
    **Scope cap.** If the `RN.X` set you are about to recommend would take more than roughly
    500 lines of *production* change, stop. Do not recommend it. Return a verdict of
@@ -415,8 +387,7 @@ report it as fixed and move on.
 
 For anything not closed in place, the question is mechanical: **does fixing it change executable
 behaviour** — a statement under `{production-roots}`, a build or task-runner recipe, a linter
-setting, or a test assertion? Not "is it important"; that judgement is what let three rounds of
-prose findings read as blocking.
+setting, or a test assertion? Not "is it important", which lets prose findings read as blocking.
 
 - **Approved** — no findings worth acting on.
 - **Approved with fixes applied** — findings existed and every one went to route A. They are
@@ -442,7 +413,7 @@ block — executable *and*, where review-derived, user-observable.
 **Awaiting your decision:** <count> (route C — design, or the proposal itself)
 **Review-derived:** <count> of <total> (against work no proposal asked for; user-observable: n)
 **Deferred:** <count> (structural cleanups; neither fixed nor tasked)
-**Grounding:** fmt/lint/test <result>; cover-gaps per package <result>; guards mutated <count>
+**Grounding:** gate <result>; coverage gaps per module <result, or not declared>; guards mutated <count>
 **Written:** review.md (Review N) — <lines> lines against design.md's <lines>
 
 <if route C is non-empty: present those findings and ask. Otherwise say nothing and stop —
@@ -473,21 +444,19 @@ block — executable *and*, where review-derived, user-observable.
   `/wf-review-proposal`'s job and it does so freely; correcting them *post*-apply goes through
   `/wf-update` + `/wf-review-proposal`, because that is the only path on which a revised plan
   gets reviewed.
-- **Never author a design in a review.** A finding may say a design is wrong; the replacement goes
-  through `/wf-update` + `/wf-review-proposal` — never through an edit to `design.md` made here, and
-  never through a mechanism prescribed in an `RN.X` task. Prescribing a mechanism is how a review
-  ships a bug, and a wrongly-worded prescription is worse than none, because a one-word slip in it
-  becomes the defect, and it takes a further review to find.
+- **Never author a design in a review.** A finding may say a design is wrong; the replacement
+  goes through `/wf-update` + `/wf-review-proposal` — never through an edit to `design.md`
+  made here, and never through a mechanism prescribed in an `RN.X` task. Prescribing a mechanism
+  is how a review ships a bug, and a wrongly-worded prescription is worse than none.
 - **A later review may downgrade a prior `design` escalation, never upgrade one.** When the
   resolution now recommended changes no executable behaviour, re-tag it `docs` and close it with
   one `RN.X` line. This is the single exception to `review.md` not being under review: you may
   read a prior round's tag to *lower* the cost of closing it, never to raise it. Upgrading is how
-  a review invents design work; without the downgrade an escalation is unappealable, because the
-  only record of it lives in two files no later review may challenge.
+  a review invents design work.
 - **Respect the scope cap** (step 5). More than ~500 production lines of recommended fixes
   means the change needs a new proposal, not a longer findings list.
 - **Respect the provenance gate** (step 5). A finding against work no proposal asked for blocks
-  only if a user of the service can observe the defect. Prefer recommending that the
+  only if a user of the software can observe the defect. Prefer recommending that the
   review-derived work be dropped over recommending it be finished.
 - **Never recommend finishing work no proposal asked for** without naming the user-visible
   consequence of its absence (class 2). Dropping it is the default.

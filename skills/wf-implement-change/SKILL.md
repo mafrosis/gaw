@@ -50,11 +50,9 @@ Implement tasks from a change.
    including a resumed one — the harness starts with an empty list, so a resumed session that
    skips this step runs with no visible plan at all.
 
-   The label matters mechanically, not just for reading: `.opencode/plugins/tasks-todo-sync.ts`
-   joins a todo to its task on that leading identifier, and a todo without one is invisible to it.
-   That plugin also states this list back to you as this skill loads, and restates any disagreement
-   with `tasks.md` on every request until it agrees — so the state is in front of you rather than
-   remembered.
+   The label matters mechanically: `.opencode/plugins/tasks-todo-sync.ts` joins a todo to its task
+   on that leading identifier, and reports any disagreement with `tasks.md` until it is resolved. A
+   todo without an identifier is invisible to it.
 
    `tasks.md` is the durable record; the todo list is a session mirror of it. Where they
    disagree, `tasks.md` wins and the todo list is re-seeded from it. Never invent a todo that has
@@ -85,15 +83,9 @@ Implement tasks from a change.
    commit. Do step 7 first, so it is written before the commit rather than chased with a second one.
 
    **Reconcile the todo list against `tasks.md` as the first act of that commit**, before staging.
-   This is the anchor: the checkbox is bundled into a commit and so cannot be skipped without the
-   commit being wrong, where the todo list has nothing holding it — nothing in this loop ever reads
-   it back, and step 6 counts progress from `tasks.md`, so the report reads correct while the
-   sidebar is stale. Reconciling here puts the mirror on the one step in the loop that cannot be
-   skipped.
-
-   `tasks-todo-sync` reports the disagreement in the result of the edit that caused it, and again in
-   every request that follows while it persists, so if neither has said anything, there is nothing to
-   reconcile.
+   The commit is the one step in the loop that cannot be skipped, so the mirror is checked there.
+   `tasks-todo-sync` reports a disagreement in the result of the edit that caused it; if it has said
+   nothing, there is nothing to reconcile.
 
    **Pause if:**
    - Task is unclear → ask for clarification
@@ -101,11 +93,10 @@ Implement tasks from a change.
    - Error or blocker encountered → report and wait for guidance
    - User interrupts
 
-   **Capture a decision this session made, before its evidence is gone.** Apply is where a decision
-   is not just taken but *measured*, and the measurement exists nowhere else: a rejected alternative
-   rests on the attempts made and what each returned — none of which anybody has after the session
-   ends. A session that leaves that unrecorded has not deferred the work; it has destroyed the
-   evidence, and the next change pays for those attempts again.
+   **Capture a decision this session made, before its evidence is gone.** Apply is where a
+   decision is not just taken but *measured* — attempts made, what each returned — and that
+   measurement exists nowhere else once the session ends. Leaving it unrecorded makes the next
+   change repeat it.
 
    So when the work decides something that meets `POLICY.md`'s three tests — it constrains a
    change nobody has proposed yet, its evidence is an absence, or it narrows a record already
@@ -116,7 +107,9 @@ Implement tasks from a change.
      `tasks.md` rule: the record itself carries the reasoning.
    - The task writes the record, adds its row to `{decisions-index}`, and marks any accepted record
      the discovery contradicts — status, amendment block, index row, per `POLICY.md`'s "A decision
-     the next change would re-litigate gets a record".
+     the next change would re-litigate gets a record". If `{decisions-dir}` does not exist yet, the
+     task creates it first (`POLICY.md`'s "Bootstrap"); if it is not declared, the decision goes in
+     `design.md`.
    - **A record *this change* wrote, falsified by a later group of the same change, is not an
      amendment.** `POLICY.md`'s trigger is a sentence made false in an **accepted** record; one this
      change authored two groups ago was never accepted and shipped, so marking it amended dates a
@@ -129,30 +122,22 @@ Implement tasks from a change.
      `/wf-review-proposal`. Authoring a new direction here is unreviewed design entering the tree,
      for the reason step 5(d) gives, and the escalation is cheap while the code is still warm.
 
-   **A deviation from the plan is recorded where the plan is, not in a review's section.** When
-   `design.md` or `tasks.md` prescribes something the code disproves, say so and write it under a
-   `### Deviations from the plan` heading in `tasks.md`, with the evidence that disproved it. Step 5's
-   `Deviations from review N's recommendations` is for a review's prescriptions and does not exist
-   until a review has run, so it was the wrong home and the only one named.
-
-   It has already been invented per-session for want of being named. One change opened such a
-   section holding two entries: a task whose prescribed mutation left the suite **green**, because
-   the run it named exercised the real implementation's contract only under a build tag the default
-   run does not set; and a task whose premise about which package called which function was simply
-   false. Each is what stops the next change re-litigating ground this one settled, and neither is
-   a review finding.
+   **A deviation from the plan is recorded where the plan is.** When `design.md` or `tasks.md`
+   prescribes something the code disproves — a premise that is false, a prescribed mutation that
+   leaves the suite green — say so and write it under a `### Deviations from the plan` heading in
+   `tasks.md`, with the evidence that disproved it. Step 5's `Deviations from review N's
+   recommendations` is for a review's prescriptions only.
 
 5. **Definition of done for a review fix (`RN.X` tasks)**
 
    A fix for a review finding is held to the standard the finding was raised under. Apply it to
-   the fix's *own* output, not only to the code it corrects. Every regression in the originating
-   repository's history arrived in a review fix, and three consecutive reviews of one change
-   blocked on fixes that shipped a fresh instance of the fault they were closing.
+   the fix's *own* output, not only to the code it corrects: a fix that ships a fresh instance of
+   the fault it was closing has moved the fault, not closed it.
 
    Before committing a group containing `RN.X` tasks, confirm all four:
 
    a. **Every guard the fix added has a test that fails when the guard is removed.** Not
-      "is covered" — removed or inverted, package run, seen red, restored. Record the mutation
+      "is covered" — removed or inverted, the suite run, seen red, restored. Record the mutation
       in a comment on the test, as `POLICY.md` requires — not in the `tasks.md` entry, which
       stays one line.
    b. **`{coverage}`, then `{coverage-gaps}` for each package or module the fix touched**, one
@@ -164,16 +149,10 @@ Implement tasks from a change.
    c. **`{gate}` passes**, including every conditional gate `PROJECT.md` names for the surface
       touched, per `POLICY.md`.
    d. **The fix does only what the finding asked.** A fix that adds a mechanism, changes an
-      interface, or refactors across package boundaries is not a review fix — it is new scope
+      interface, or refactors across module boundaries is not a review fix — it is new scope
       wearing one. Stop, and take it through `/wf-update` + `/wf-review-proposal`, which is
-      the only path on which a design gets reviewed before it is written.
-
-      This is the fault that has cost the originating repository the most per line. A review-2
-      fix once wrote a
-      claim broader than the code it described; two rounds later that one sentence was a mandate
-      for nine tasks of production work no proposal had asked for, plus three further review
-      passes. Describe what the code does; do not write down an aspiration and then be bound
-      by it.
+      the only path on which a design gets reviewed before it is written. Describe what the code
+      does; a claim broader than the code becomes a mandate for work no proposal asked for.
 
    **If a fix cannot be implemented as written, do not approximate it.** Say so, record the
    deviation with its evidence in the `Deviations from review N's recommendations` section of
@@ -190,15 +169,8 @@ Implement tasks from a change.
    - If all done: suggest archive
    - If paused: **name which of step 4's four conditions fired**, then wait for guidance
 
-   "Explain why" was the earlier wording, and an explanation that does not have to be one of the
-   four is satisfied by any plausible sentence. Two arrived in one session. The first claimed the
-   groups just completed were the set the plan required be committed together — contradicted by the
-   `tasks.md` line the same session had written, which named one group more. The second claimed the
-   session was running low on context, which is not measurable from here at all. Both read as
-   workflow judgement and neither was one.
-
    If none of the four fired, the session has not paused; it has stopped, and the next one pays the
-   re-entry: three artifacts re-read, every unticked task re-seeded, the same files opened again.
+   re-entry.
 
 7. **Addendum — recommended test plan** (run when the apply session concludes: all tasks complete, or you're wrapping up a partial session)
 
@@ -221,10 +193,7 @@ Implement tasks from a change.
       git add <this group's files> "changes/<name>/tasks.md" "changes/<name>/test_plan.md"
       git commit -m "<type>(<scope>): <group summary> [<name>]"
       ```
-      The test plan describes the work in that commit, so it belongs in it. It used to get a commit
-      of its own, `docs(changes): test-plan <name>`, which meant every apply session left a
-      single-file commit in the log that every later reader has to read past — for a file that is
-      an artifact of the work beside it, not a change in its own right.
+      The test plan describes the work in that commit, so it belongs in it.
 
       Nothing to do if `test_plan.md` is unchanged. Defer the addendum entirely if apply paused
       mid-task awaiting clarification.
@@ -232,51 +201,41 @@ Implement tasks from a change.
 8. **Close the report with a recommendation on whether to review**
 
     The last thing the report says is whether `/wf-review` is worth a session. A round costs
-    roughly what the apply session cost, so the decision gets made either way — ending with
-    "Next: `/wf-review`" just makes it silently and always in the same direction.
+    roughly what the apply session cost, so make the decision explicitly.
 
     **State the action, not a confidence about the action.** One of exactly three:
 
     - **Skip the round**, naming the cheaper check that replaces it. Available **only** when all
-      four conditions hold: no new mechanism, interface or package boundary was authored; every
-      guard added is mutation-proven red with the mutation in a test comment; every **clause** of
-      every behaviour the proposal promised is pinned by a named test; and the production diff is
-      small enough that a reader can hold it in their head.
+      four conditions hold: no new mechanism, interface or module boundary was authored; every guard
+      added is mutation-proven red with the mutation in a test comment; every **clause** of every
+      behaviour the proposal promised is pinned by a named test; and the production diff is small
+      enough that a reader can hold it in their head.
     - **Review, scoped to the surface you name** — the default when any one of the four is unmet.
     - **Run `/wf-review`** — any new mechanism, any guard added without a failing test, or a
       production diff large enough that its own author cannot enumerate its edges.
 
     Justify it with **how many of the four conditions are unmet**, and which. That number is
-    derived from facts about the session, so it needs no calibration and cannot be talked up or
-    down; "unmet" carries its own direction, so zero is unambiguously good.
-
-    Two earlier forms are recorded because this line has now been rewritten twice. It was a
-    confidence that a round was **unnecessary**, so "High" meant skip and the band a reader
-    associates with risk licensed the least checking. Inverting it to "necessary: Low" fixed the
-    double negative and left the indirection — a band still has to be translated into a decision.
-    A **percentage** was considered and rejected: it needs its legend restated every time, it
-    clusters on three values anyway, and a number nobody can defend to a tenth is not one a reader
-    can disagree with. The bands were only ever labels for the three actions above.
+    derived from facts about the session, so it cannot be talked up or down. Do not substitute a
+    confidence band or a percentage: either still has to be translated into one of the three
+    actions.
 
     Report the six signals in the output template below. Each is a fact about the session rather
     than a judgement, which is the point: the recommendation is defined by what the facts license,
     not by how the work felt.
 
     **The recommendation is about the round, never about the code.** Skipping is a claim that a
-    *cheaper check covers the same surface* — never that the surface is clean. In the session this
-    step was added from, skipping review 2 was the right call **and** the targeted check that
-    replaced it still found a claim describing code that did not exist. So: name the check, then
-    run it. A skipped round is a substituted check, not an absent one.
+    *cheaper check covers the same surface* — never that the surface is clean. So: name the check,
+    then run it. A skipped round is a substituted check, not an absent one.
 
-    **Do not recommend skipping while any test written this session is verified only at whole-claim
-    granularity** — count it as a condition unmet. A test's name is a claim, and each clause of that
-    claim needs exercising. A test named, say, "the record is saved **and the cache is cleared**"
-    can demonstrate the first half and not the second while the second half is false. A test
-    existing per claim is not the check; a test exercising each clause is.
+    **Do not recommend skipping while any test written this session is verified only at
+    whole-claim granularity** — count it as a condition unmet. A test's name is a claim, and each
+    clause of that claim needs exercising. A test named for "X **and** Y" that demonstrates only X
+    leaves Y unverified. A test existing per claim is not the check; a test exercising each clause
+    is.
 
     **Weigh provenance.** If this session's work was `RN.X` review fixes, a following round
-    would be reviewing review-derived work, which `POLICY.md`'s provenance gate permits to
-    block only on a user-observable defect — so the round's conclusion is largely
+    would be reviewing review-derived work, which `POLICY.md`'s "Review-derived work and the
+    provenance gate" permits to block only on a user-observable defect — so the round's conclusion is largely
     predetermined. Say so, and prefer the targeted check. If the session implemented the
     proposal's *What Changes*, a round has proposed work to review and that argument for
     skipping is weaker.
@@ -332,11 +291,11 @@ Conditions unmet: <n> of 4<, and which>.
 | Signal | This session |
 |---|---|
 | Production lines changed | <n, or "deletions only"> |
-| New mechanism, interface or package boundary | <none / what> |
+| New mechanism, interface or module boundary | <none / what> |
 | Guards added, and mutation-proven red | <n of n> |
 | Behaviours promised, and pinned by a named test | <n of n> |
 | Provenance of this session's work | <proposal's What Changes / prior review's RN.X> |
-| Artifact volume | <n lines — inside/above the one-round band> |
+| Artifact volume | <n lines across the change's artifacts> |
 
 **What would change this:** <the specific finding that would move the recommendation>
 
@@ -365,8 +324,7 @@ What would you like to do?
 **Guardrails**
 - **Seed the todo list from `tasks.md` before writing any code** (step 3), every session,
   including a resumed one. The harness has no view into `tasks.md`, so a session that skips this
-  runs with the user unable to see the plan or the progress — which is the most common way this
-  skill has been run wrong.
+  runs with the user unable to see the plan or the progress.
 - **`tasks.md` is authoritative; the todo list mirrors it.** One todo per unticked task, labelled
   with the task's identifier, exactly one `in_progress`. Reconcile the mirror at the group commit
   (step 4), which is the only step in the loop that cannot be skipped.
@@ -374,8 +332,7 @@ What would you like to do?
   conditions. Session length is not one of them, and neither is the pull of step 7: a report is the
   shape of finished work, so reaching for it is attractive at any group boundary. **A limit you
   cannot measure is not a limit you have** — there is no context meter here, so "running low" is an
-  impression, and reporting an impression as a constraint is the fault step 8 names about an unrun
-  `{coverage-gaps}`, in the one place nobody can check it.
+  impression, not a constraint.
 - Always read the change's artifacts before starting
 - If task is ambiguous, pause and ask before implementing
 - If implementation reveals issues, pause and suggest artifact updates
@@ -404,13 +361,5 @@ What would you like to do?
   of the four conditions are unmet, the six signals, and what would move it. Skipping names the
   cheaper check *in the recommendation itself* — a recommendation to skip with no named substitute
   is a recommendation to stop checking.
-- **A claim is not pinned until a test exercises every clause of it.** Verifying per whole claim
-  rather than per clause is how a test can assert something that does not happen and still reach a
-  commit. Until it is done per clause, that is a condition unmet, so skipping is not available.
-
-**Fluid Workflow Integration**
-
-This skill supports the "actions on a change" model:
-
-- **Can be invoked anytime**: Before all artifacts are done (if tasks exist), after partial implementation, interleaved with other actions
-- **Allows artifact updates**: If implementation reveals design issues, suggest updating artifacts - not phase-locked, work fluidly
+- **A claim is not pinned until a test exercises every clause of it.** Until it is done per
+  clause, that is a condition unmet, so skipping is not available.

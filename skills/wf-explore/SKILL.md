@@ -82,7 +82,7 @@ Depending on what the user brings, you might:
 
 ## wf Awareness
 
-You have full context of this repository's change workflow. Use it naturally, don't force it.
+You have full context of this project's change workflow. Use it naturally, don't force it.
 
 ### Check for context
 

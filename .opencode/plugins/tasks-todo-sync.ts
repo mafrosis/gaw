@@ -229,7 +229,7 @@ export const TasksTodoSync: Plugin = async ({ client }) => {
    *
    * Both a path argument and a shell command are scanned, because `wf-implement-change` step 2 says
    * to read the change's artifacts without saying with which tool, and `cat changes/<n>/tasks.md`
-   * is a legal reading of that. `changestat CHANGE=<n>` names no path and so seeds nothing; that
+   * is a legal reading of that. `changestat.ts -change <n>` names no path and so seeds nothing; that
    * residual gap is a missed report rather than a wrong one, and the skill-load hook still fires
    * for it.
    */

@@ -16,7 +16,6 @@ unrun check and a passing one must not read alike.
 | `{format}` | | yes | before every commit |
 | `{lint}` | | yes | before every commit |
 | `{test}` | | yes | before every commit; the main test suite |
-| `{changes}` | | yes | task progress; `CHANGE=<name>` for one, `VERIFY=1` to gate on completeness |
 | `{integration-test}` | | no | any change touching the surface it covers |
 | `{ui-test}` | | no | any change touching the UI |
 | `{coverage}` | | no | before `{coverage-gaps}`, which reads its profile |

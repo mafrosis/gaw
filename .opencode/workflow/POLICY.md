@@ -32,6 +32,7 @@ These are properties of the workflow, so a project does not get to configure the
 | `review.md` `test_plan.md` | added once those steps have run |
 | `changes/archive/YYYY-MM-DD-<name>/` | where an archived change lands |
 | `- [ ] N.X` / `- [ ] RN.X` | the task and review-fix checkbox forms the counter and the plugin both parse |
+| `bun .opencode/workflow/changestat.ts [-change <name>] [-verify]` | the task counter: progress per change; `-verify` exits 2 while tasks remain, 1 when it cannot look |
 
 ## On the measurements in this file
 

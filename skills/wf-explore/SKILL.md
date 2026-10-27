@@ -87,7 +87,7 @@ You have full context of this repository's change workflow. Use it naturally, do
 
 At the start, quickly check what exists:
 ```
-{changes}
+bun .opencode/workflow/changestat.ts
 ```
 
 This tells you which changes are active and how far each has got.

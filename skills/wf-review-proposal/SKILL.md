@@ -59,7 +59,7 @@ available changes.
 1. **Select the change**
 
    If a name is provided, use it. Otherwise infer from conversation context, auto-select if only
-   one active change exists, or run `{changes}` and use the **question** tool to let the user
+   one active change exists, or run `bun .opencode/workflow/changestat.ts` and use the **question** tool to let the user
    select. Announce: "Reviewing proposal: <name>".
 
 2. **Pre-flight — establish what is still unbuilt**
@@ -72,7 +72,7 @@ available changes.
    you as this skill loads, so you have already been shown what you inherited.
 
    ```bash
-   {changes} CHANGE=<name>
+   bun .opencode/workflow/changestat.ts -change <name>
    ```
    Read every artifact in `changes/<name>/`. Note
    which groups are `- [x]`.
@@ -161,9 +161,9 @@ available changes.
 
    Nothing validates these artifacts mechanically, so check by reading:
    - all three artifacts exist and none contradicts another;
-   - every task is a `- [ ] N.X` checkbox, so `{changes}` counts it, and is grouped under a
+   - every task is a `- [ ] N.X` checkbox, so `bun .opencode/workflow/changestat.ts` counts it, and is grouped under a
      `## N.` heading that maps to one commit;
-   - `{changes} CHANGE=<name>` reports the task count you expect;
+   - `bun .opencode/workflow/changestat.ts -change <name>` reports the task count you expect;
    - no artifact cites `file:line` — durable artifacts cite symbols (`POLICY.md`);
    - the ADR question is answered either way: a task writing the record and its index row, a task
      marking each record this change contradicts, or a stated position that the decisions are
@@ -210,7 +210,7 @@ carried by `Precondition:` in the output block — so "right, and waiting on ano
 **Findings:** <n> (problem-fit, assumptions, tasks, decisions, grounding)
 **Tasks:** +<added> / -<removed>
 **Revisions:** <artifacts revised, or "none">
-**Artifacts:** coherent; tasks countable by `{changes}` ✓
+**Artifacts:** coherent; tasks countable by `bun .opencode/workflow/changestat.ts` ✓
 
 <recommendation, e.g. "Ready for /wf-implement.", "Parked on <change>; /wf-implement once it
  lands." or "Recommend /wf-propose restart.">

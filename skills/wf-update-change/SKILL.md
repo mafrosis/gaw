@@ -20,7 +20,7 @@ ambiguous you MUST ask rather than guess.
 
 ## Steps
 
-1. **Select the change.** `{changes}` lists the active ones with task progress. Present
+1. **Select the change.** `bun .opencode/workflow/changestat.ts` lists the active ones with task progress. Present
    the plausible candidates with the **question** tool, marking the most recently
    modified "(Recommended)". Never auto-select.
 

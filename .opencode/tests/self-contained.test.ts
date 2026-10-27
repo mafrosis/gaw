@@ -238,7 +238,7 @@ describe("no backticked path names a host-project file", () => {
 describe("PROJECT.template.md declares what POLICY.md requires", () => {
   // POLICY.md names these as required. A PROJECT.md missing one leaves a step with nothing to run
   // and no slot to report as skipped, which is the one degradation the design does not allow.
-  const required = ["format", "lint", "test", "changes", "production-roots", "test-patterns"]
+  const required = ["format", "lint", "test", "production-roots", "test-patterns"]
 
   test("the required slots are all present", () => {
     const known = declared()

@@ -20,6 +20,8 @@ That gives the project:
 | `.opencode/skills/wf-*/SKILL.md` | the seven workflow steps |
 | `.opencode/workflow/POLICY.md` | the workflow's rules — project-neutral, do not edit per project |
 | `.opencode/workflow/PROJECT.template.md` | every slot, empty; **the one file you edit** is the copy you make of it |
+| `.opencode/workflow/changestat.ts` | the task counter |
+| `.opencode/workflow/tasks.ts` | the checkbox parser, shared by the counter and the plugin |
 | `.opencode/workflow/decisions/` | templates for a project with no decision-record directory |
 | `.opencode/plugins/tasks-todo-sync.ts` | reports when `tasks.md` and the session todo list disagree |
 | `.opencode/tests/` | the bundle's own tests |
@@ -32,12 +34,6 @@ cp .opencode/workflow/PROJECT.template.md .opencode/workflow/PROJECT.md
 
 Three command slots are **required**: `{format}`, `{lint}`, `{test}`. Two path slots are
 required: `{production-roots}` (what a review may not edit) and `{test-patterns}` (the exception).
-`{changes}` is the project's task counter:
-
-```
-| `{changes}` | `changestat` | yes | task progress |
-```
-
 Leave every other slot empty until the project has something to put in it. An empty slot is
 skipped and reported as skipped — the workflow degrades, it does not break.
 
@@ -69,7 +65,8 @@ that only existed in the project the workflow came from.
 ## Step 4 — check it resolves
 
 ```bash
-cd .opencode && bun test tests/    # green, including the self-containment test
+bun .opencode/workflow/changestat.ts     # "no active changes" on a fresh project
+cd .opencode && bun test tests/          # green, including the self-containment test
 ```
 
 Then `/wf-propose` something small and watch it through to `/wf-archive`.

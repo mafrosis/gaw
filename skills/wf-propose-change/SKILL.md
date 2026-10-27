@@ -83,14 +83,14 @@ meta-work and does come here, and a change of workflow **direction** still owes 
    - **Open Questions**: only genuinely deferrable unknowns. A question that would change
      the approach or the task list is not deferrable — resolve it with the user now.
 
-   **`tasks.md`** — the checklist. Format matters: `{changes}` counts the checkboxes.
+   **`tasks.md`** — the checklist. Format matters: `bun .opencode/workflow/changestat.ts` counts the checkboxes.
    - Group under `## N.` headings; one commit per group at apply time.
    - Every task is `- [ ] N.X <description>`. A task not written as a checkbox is not tracked.
    - Order by dependency, and prefer test-first: a failing test, then the code, then
      `{gate}` closing each group.
    - Each task must be verifiable — you can tell when it is done.
 
-5. **Report status** with `{changes}` and confirm all three artifacts exist.
+5. **Report status** with `bun .opencode/workflow/changestat.ts` and confirm all three artifacts exist.
 
 6. **Commit** — per the Propose checkpoint in `POLICY.md`:
    ```bash

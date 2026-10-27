@@ -23,7 +23,7 @@ ambiguous you MUST ask rather than guess.
 
 ## Steps
 
-1. **Select the change.** `{changes}` lists the active ones with their task progress. If
+1. **Select the change.** `bun .opencode/workflow/changestat.ts` lists the active ones with their task progress. If
    more than one is active and the intent is unclear, use the **question** tool. Never
    auto-select.
 
@@ -33,7 +33,7 @@ ambiguous you MUST ask rather than guess.
 
 3. **Check task completion.**
    ```bash
-   {changes} CHANGE=<name>
+   bun .opencode/workflow/changestat.ts -change <name>
    ```
    Report the count. Incomplete tasks are a warning, not a block — confirm with the user
    before proceeding.
@@ -69,7 +69,7 @@ ambiguous you MUST ask rather than guess.
 
 6. **Verify the moved change**, which is the one thing worth checking after the move:
    ```bash
-   {changes} CHANGE=archive/$(date +%F)-<name> VERIFY=1
+   bun .opencode/workflow/changestat.ts -change archive/$(date +%F)-<name> -verify
    ```
    A non-zero exit means tasks remain. That is not a block if the user already accepted it
    in step 3 — but it must be stated in the summary, not silently passed over.

@@ -1,11 +1,8 @@
 /**
  * changestat — tests for the workflow's task counter.
  *
- * Ported from the Go tool this replaced, case for case, so
- * the port is held to the behaviour the original was held to rather than to a fresh reading of it.
- * The final group is new: the Go tests could not exercise the process's exit codes, and `-verify`'s
- * distinction between "work remains" (2) and "I could not look" (1) is the one thing the archive
- * checkpoint acts on.
+ * `-verify`'s distinction between "work remains" (2) and "I could not look" (1) is what the archive
+ * checkpoint acts on, so the process's exit codes are pinned as well as the counting.
  */
 
 import { describe, expect, test } from "bun:test"
@@ -21,6 +18,7 @@ import {
   IN_PROGRESS,
   incomplete,
   main,
+  parse,
   report,
   scan,
   selected,
@@ -120,9 +118,8 @@ describe("listing", () => {
   test("a missing default root is no active changes, not an error", async () => {
     /*
      * A project that has not started using the workflow has no changes/ directory, and every skill
-     * runs the counter at step 1 — so erroring here would make the first /wf-propose in a fresh
-     * project fail before it could create the directory it was about to create. Found by copying the
-     * bundle into a scratch project, not by reading.
+     * runs the counter at step 1 — so erroring here would make the first /wf-propose fail before it
+     * could create the directory.
      *
      * Fails without the `named` parameter's ENOENT branch: throws, and main returns EXIT_ERROR.
      */
@@ -219,9 +216,8 @@ describe("report", () => {
 })
 
 describe("exit codes", () => {
-  // New in the port. The Go tests exercised scan/selected/incomplete and never the process, so
-  // nothing pinned the distinction the archive checkpoint acts on: 2 means work remains, 1 means the
-  // tool could not look. Collapsing them would make a mistyped -root read as an unfinished change.
+  // 2 means work remains, 1 means the tool could not look. Collapsing them would make a mistyped
+  // -root read as an unfinished change.
 
   test("a complete change verifies clean", async () => {
     const dir = root()
@@ -259,5 +255,33 @@ describe("exit codes", () => {
 
     expect(await main(["-root", dir, "-change", "other", "-verify"])).toBe(0)
     expect(await main(["-root", dir, "-change", "wanted", "-verify"])).toBe(EXIT_UNMET)
+  })
+})
+
+describe("arguments", () => {
+  test("make-style assignments are refused, not ignored", async () => {
+    const dir = root()
+    writeChange(dir, "wanted", "- [ ] 1.1 pending\n")
+
+    // Fails without the `unexpected argument` throw in parse: CHANGE= and VERIFY= are skipped, every
+    // change is listed, verify is off, and main returns 0 with a task outstanding.
+    expect(await main([`-root=${dir}`, "CHANGE=wanted", "VERIFY=1"])).toBe(EXIT_ERROR)
+  })
+
+  test("an unknown flag is refused", async () => {
+    // Fails without the `unknown flag` throw in parse: a misspelt -verfiy is dropped and exits 0.
+    expect(await main(["-verfiy"])).toBe(EXIT_ERROR)
+  })
+
+  test("a valued flag with no value is refused", () => {
+    // Fails without the `needs a value` throw: -change followed by -verify swallows the flag.
+    expect(() => parse(["-change", "-verify"])).toThrow("needs a value")
+    expect(() => parse(["-change"])).toThrow("needs a value")
+    expect(() => parse(["-root="])).toThrow("needs a value")
+  })
+
+  test("every accepted form parses", () => {
+    expect(parse(["--root=r", "-change", "c", "--verify"])).toEqual({ root: "r", change: "c", verify: true })
+    expect(parse([])).toEqual({ verify: false })
   })
 })

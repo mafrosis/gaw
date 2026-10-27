@@ -24,7 +24,7 @@ Implement tasks from a change.
    If a name is provided, use it. Otherwise:
    - Infer from conversation context if the user mentioned a change
    - Auto-select if only one active change exists
-   - If ambiguous, run `{changes}` to list the active ones and use the **question** tool to let the user select
+   - If ambiguous, run `bun .opencode/workflow/changestat.ts` to list the active ones and use the **question** tool to let the user select
 
    Always announce: "Using change: <name>" and how to override (e.g., `/wf-implement <other>`).
 
@@ -34,7 +34,7 @@ Implement tasks from a change.
    plus `review.md` once it has been reviewed. Read all of them, and `.opencode/workflow/POLICY.md`.
 
    ```bash
-   {changes} CHANGE=<name>
+   bun .opencode/workflow/changestat.ts -change <name>
    ```
 
    - **No `tasks.md`:** the change is not ready to apply — point at `/wf-propose`.
@@ -111,7 +111,7 @@ Implement tasks from a change.
    accepted — and no task covers it:
 
    - **Append the task to the current group** rather than writing the record silently, so it is
-     committed with the work that produced it and `{changes}` counts it. One line, per the
+     committed with the work that produced it and `bun .opencode/workflow/changestat.ts` counts it. One line, per the
      `tasks.md` rule: the record itself carries the reasoning.
    - The task writes the record, adds its row to `{decisions-index}`, and marks any accepted record
      the discovery contradicts — status, amendment block, index row, per `POLICY.md`'s "A decision

@@ -2,34 +2,18 @@
 /**
  * changestat — report how far each change under `changes/` has been implemented.
  *
+ *     bun .opencode/workflow/changestat.ts [-root <dir>] [-change <name>] [-verify]
+ *
  * It counts the task checkboxes in a change's tasks.md and prints, per change, how many are ticked.
- * With -verify it exits non-zero unless every task is ticked, which is what the archive checkpoint
- * gates on.
+ * With -verify it exits 2 unless every task is ticked; exit 1 means it could not look (a bad
+ * argument, an unreadable root, an unknown change). Written in TypeScript so the bundle runs under
+ * the bun that opencode already uses, whatever the host project's stack.
  *
- * It exists because task counting is the only piece of tooling the workflow genuinely needs, and
- * the skills reference it at every step. It is deliberately about thirty lines of logic on top of
- * `tasks.ts` rather than a dependency, and it is written in TypeScript rather than in the host
- * project's language so that the `.opencode/` bundle can be copied into a project of any stack and
- * work there: bun is present wherever opencode is, because opencode loads and installs `.opencode/`
- * with it.
+ * A ticked box is a claim that the work was done, not evidence of it: -verify answers "does this
+ * change claim to be finished", and the review checkpoints judge whether it is.
  *
- * # What it cannot tell you
- *
- * A ticked box means somebody wrote `[x]`. It says nothing about whether the work was done, tested,
- * or reviewed — the review checkpoints are what judge that, and a tool that counted them would be
- * measuring prose. So -verify answers "does this change claim to be finished", not "is this change
- * finished", and the archive checkpoint pairs it with a human or agent having read the review.
- *
- * It refuses a root directory it cannot read rather than printing "no active changes". The two must
- * not look alike: the first is a mistyped path, the second is the answer a caller acts on. A green
- * report on a wrong input is worse than an error.
- *
- * That refusal is scoped to a root the **caller named**. A project that has not started using the
- * workflow has no `changes/` directory, and every skill runs this at step 1 — so erroring on the
- * default would make the first `/wf-propose` in a fresh project fail before it could create the
- * directory it was about to create. An absent default is "no active changes"; an absent `-root` is
- * still an error, because the caller asserted it exists. Found by copying the bundle into a scratch
- * project and running it, which is the only way this shows up.
+ * A root the caller named must exist. The default root may be absent — a project that has not yet
+ * proposed a change has no `changes/` directory — and is then reported as "no active changes".
  */
 
 import { readdir, readFile, stat } from "node:fs/promises"
@@ -37,7 +21,7 @@ import { join } from "node:path"
 
 import { count, TASKS_FILE } from "./tasks.ts"
 
-/** Where changes live. Fixed by the workflow; see PROJECT.md's "What is fixed, and not a slot". */
+/** Where changes live. Fixed by the workflow; see POLICY.md's "What is fixed, and not a slot". */
 const DEFAULT_ROOT = "changes"
 
 /**
@@ -157,34 +141,70 @@ export function report(cs: Change[]): string {
     .concat("\n")
 }
 
-/** flag reads `-name=value` or `-name value` from argv, mirroring Go's flag package closely enough. */
-function flag(argv: string[], name: string): string | undefined {
+export const USAGE = "usage: changestat [-root <dir>] [-change <name>] [-verify]"
+
+/** The flags that take a value, and the one that does not. */
+const VALUED = new Set(["root", "change"])
+const BOOLEAN = new Set(["verify"])
+
+type Args = { root?: string; change?: string; verify: boolean }
+
+/**
+ * parse reads `-name value`, `-name=value` or `--name` forms.
+ *
+ * Anything it does not recognise is an error rather than ignored: an ignored `CHANGE=foo` reports
+ * every change and, under a misspelt verify flag, exits 0 — a silent pass at the archive gate.
+ */
+export function parse(argv: string[]): Args {
+  const args: Args = { verify: false }
+
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!
+    const m = arg.match(/^--?([a-z]+)(?:=(.*))?$/)
+    if (!m) throw new Error(`unexpected argument "${arg}"`)
 
-    for (const prefix of [`-${name}`, `--${name}`]) {
-      if (arg === prefix) return argv[i + 1]?.startsWith("-") === false ? argv[i + 1] : ""
-      if (arg.startsWith(`${prefix}=`)) return arg.slice(prefix.length + 1)
+    const [, name, inline] = m
+
+    if (BOOLEAN.has(name!)) {
+      if (inline !== undefined) throw new Error(`-${name} takes no value`)
+      args.verify = true
+      continue
     }
+
+    if (!VALUED.has(name!)) throw new Error(`unknown flag "${arg}"`)
+
+    const value = inline ?? argv[++i]
+    if (value === undefined || value === "" || (inline === undefined && value.startsWith("-"))) {
+      throw new Error(`-${name} needs a value`)
+    }
+
+    if (name === "root") args.root = value
+    else args.change = value
   }
 
-  return undefined
-}
-
-function has(argv: string[], name: string): boolean {
-  return argv.includes(`-${name}`) || argv.includes(`--${name}`)
+  return args
 }
 
 export async function main(argv: string[]): Promise<number> {
-  const named = flag(argv, "root")
-  const root = named || DEFAULT_ROOT
-  const name = flag(argv, "change") || ""
-  const verify = has(argv, "verify")
+  let args: Args
+
+  try {
+    args = parse(argv)
+  } catch (err) {
+    console.error("changestat:", (err as Error).message)
+    console.error(USAGE)
+
+    return EXIT_ERROR
+  }
+
+  const root = args.root ?? DEFAULT_ROOT
+  const name = args.change ?? ""
+  const verify = args.verify
 
   let found: Change[]
 
   try {
-    found = name !== "" ? await selected(root, name) : await scan(root, named !== undefined)
+    found = name !== "" ? await selected(root, name) : await scan(root, args.root !== undefined)
   } catch (err) {
     console.error("changestat:", (err as { message?: string }).message ?? err)
 

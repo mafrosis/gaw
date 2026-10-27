@@ -109,6 +109,8 @@ passes before the commit. A trivial fix is trivial in size, never in evidence.
   existing; do not generate findings about it where it does.
 - **`test_plan.md`, beyond a command that does not run.** A stale sentence in it is not worth a
   round.
+- **`report.md`.** It is the change's rolling status record, rewritten by every stage. Read it for
+  the decisions already taken; never raise a finding against it.
 
 Reviewing prose produces prose findings, whose fixes are more prose, which the next round then
 verifies. Judge the **code** against the tests and the proposal. If a document disagrees with the
@@ -128,6 +130,19 @@ so artifact volume drives review rounds.
   true" collapse to at most one line per Focus Area, or are omitted. No praise.
 - **Budget:** if your `## Review N` section is longer than the change's `design.md`, you are
   narrating rather than reviewing. Cut prose before cutting findings.
+
+**Scope**
+
+The scope comes from the previous stage's hand-off (`next-scope`), which is implement's review
+recommendation. With no hand-off, it is `whole`.
+
+- **`whole`** — every step below.
+- **`surface <what>`** — every step below, with the deep review and the grounding confined to the
+  named surface. Say in `review.md` what was out of scope.
+- **`targeted: <the check>`** — run the named check and `{gate}`, then write a `## Review N`
+  section holding only the check, its result and any finding it produced, routed by step 5 as
+  usual. Skip step 4's delegation. A targeted round satisfies archive's review gate, because it is
+  a review: a substituted check, not an absent one.
 
 **Steps**
 
@@ -163,7 +178,9 @@ so artifact volume drives review rounds.
 
 4. **Delegate the deep review to the `general` subagent**
 
-   Use the Task tool (subagent_type: "general"). The prompt MUST include:
+   Use the Task tool (subagent_type: "general"). If the Task tool is not available to you — this
+   stage may itself be running as a subagent — do the deep review yourself, against the same
+   brief. The prompt MUST include:
    - the change name and its artifact paths (proposal, design, tasks)
    - the Focus Areas above **and the two classes no mechanical check can find**
    - **what is under review and what is not** — in particular that `review.md` is never a
@@ -367,10 +384,14 @@ so artifact volume drives review rounds.
    bar above forbids that). Report it, then edit the file, with the workflow's own tests green and
    its own commit separate from this round's.
 
-10. **Commit — once, with everything** — per the Review checkpoint in `POLICY.md`:
+10. **Update `report.md`** per `POLICY.md`'s "The report": the round and verdict in "Where it
+    stands", each decision the user took on a route-C finding in "Decisions and trade-offs", and
+    the summary below as "Latest stage".
+
+11. **Commit — once, with everything** — per the Review checkpoint in `POLICY.md`:
 
     ```bash
-    git add "changes/<name>/review.md" "changes/<name>/tasks.md" <files fixed in step 7>
+    git add "changes/<name>/review.md" "changes/<name>/tasks.md" "changes/<name>/report.md" <files fixed in step 7>
     git commit -m "docs(changes): review <name> (review N)"
     ```
 
@@ -401,7 +422,7 @@ entirely review-derived and none of it user-observable is `Approved with fixes a
 review-derived work is **dropped rather than completed**. Both tests must pass for a finding to
 block — executable *and*, where review-derived, user-observable.
 
-**Output On Success**
+**Stage summary** — the "Latest stage" block in `report.md`
 
 ```
 ## Review N Complete: <change-name>
@@ -416,8 +437,7 @@ block — executable *and*, where review-derived, user-observable.
 **Grounding:** gate <result>; coverage gaps per module <result, or not declared>; guards mutated <count>
 **Written:** review.md (Review N) — <lines> lines against design.md's <lines>
 
-<if route C is non-empty: present those findings and ask. Otherwise say nothing and stop —
- the round is complete and the next step is /wf-implement or /wf-archive.>
+<next: implement for the RN.X tasks, or archive>
 ```
 
 **Guardrails**
@@ -472,3 +492,22 @@ block — executable *and*, where review-derived, user-observable.
 - Idempotent numbering: never overwrite prior `## Review K` sections; always append the next `N`.
 - A behaviour worth keeping is worth a test that fails without it. That test is now the only
   durable record of it, so "it works" is not evidence — "it fails when broken" is.
+
+## Hand-off
+
+Then return the hand-off from `POLICY.md`'s "The hand-off":
+
+- `Approved`, or `Approved with fixes applied` → `next: archive`, `stop: none`.
+- `Changes required`, every open finding a route-B `RN.X` task → `next: implement`,
+  `stop: none`. The flow's loop guard, not this stage, decides whether round 3 or later continues.
+- Route C has findings → `stop: needs-input` at step 9, **before** committing, with each finding,
+  its options and your recommendation. Resumed with the answers, finish steps 9–11 and hand off
+  again: a design escalation the user accepted is `next: update` with the finding as the
+  revision to make; tasks they approved are `next: implement`.
+- The scope cap is exceeded, or most findings are review-derived → `stop: needs-input`,
+  recommending a new proposal or closing the change.
+
+As a `wf-flow` stage, every instruction above to ask the user becomes a `stop: needs-input`
+hand-off carrying that question and your recommended answer; you are resumed with the answer and
+continue from where you stopped. Loaded directly, outside `wf-flow`, load `wf-flow` and continue
+from `next` instead of ending your turn — unless `stop` is not `none`.

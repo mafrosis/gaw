@@ -25,9 +25,13 @@ ambiguous you MUST ask rather than guess.
 
 ## Steps
 
-1. **Select the change.** `bun .opencode/workflow/changestat.ts` lists the active ones with their task progress. If
-   more than one is active and the intent is unclear, use the **question** tool. Never
-   auto-select.
+1. **Select the change.** If a name was given, use it. Otherwise
+   `bun .opencode/workflow/changestat.ts` lists the active ones with their task progress; if more
+   than one is active and the intent is unclear, use the **question** tool. Never auto-select.
+
+   **Collect every confirmation this skill asks for — steps 2 and 3 and the two guardrails on
+   invariants and records — and ask them as one question set before step 5**, not one at a time.
+   When none of them fires, ask nothing.
 
 2. **Check the artifacts are present.** `changes/<name>/` should hold `proposal.md`,
    `design.md` and `tasks.md`. A missing artifact is a warning, not a block: report it and
@@ -56,8 +60,8 @@ ambiguous you MUST ask rather than guess.
      `tasks.md` and looking at what was written.
      - **Docs or tooling only** (no code): the gate does not apply. Note the exception and
        proceed.
-     - **Any code change, or you cannot confidently establish it was docs-only:** **abort.**
-       Tell the user to run `/wf-review <name>` first.
+     - **Any code change, or you cannot confidently establish it was docs-only:** do not
+       archive. Hand off to review (below); the flow runs it and comes back here.
 
    Fail closed. When in doubt, require the review.
 
@@ -75,13 +79,18 @@ ambiguous you MUST ask rather than guess.
    A non-zero exit means tasks remain. That is not a block if the user already accepted it
    in step 3 — but it must be stated in the summary, not silently passed over.
 
-7. **Commit** — per the Archive checkpoint in `POLICY.md`:
+7. **Update the moved `report.md`** per `POLICY.md`'s "The report": every stage done in "Where
+   it stands", `State: done`, "Waiting on you" empty, the summary below as "Latest stage", and a
+   final log row. This is the report a reader of the finished change reads.
+
+8. **Commit** — per the Archive checkpoint in `POLICY.md`:
    ```bash
+   git add "changes/archive/$(date +%F)-<name>/report.md"
    git commit -m "chore(changes): archive <name>"
    ```
-   Stage explicit paths; never `git add -A`.
+   The `git mv` is already staged. Stage explicit paths; never `git add -A`.
 
-## Output
+## Stage summary — the "Latest stage" block in `report.md`
 
 ```
 ## Archive Complete
@@ -95,22 +104,15 @@ ambiguous you MUST ask rather than guess.
 <any warnings the user accepted>
 ```
 
-When the review gate blocks:
-
-```
-## Archive Blocked: <name>
-
-No review.md, and this change includes code changes.
-Run /wf-review <name> first, then re-run /wf-archive.
-(Docs- and tooling-only changes are exempt.)
-```
+When the review gate blocks, nothing moves and nothing is committed; the hand-off routes to
+review.
 
 ## Guardrails
 
-- Always confirm which change; never auto-select.
+- Never auto-select a change the user did not name.
 - Incomplete artifacts and tasks **inform and confirm**; they do not block.
-- **The review gate is a hard block.** Never archive a change containing code without
-  `review.md`. Fail closed when unsure.
+- **The review gate is a hard block on archiving**, not on the flow. Never archive a change
+  containing code without `review.md`; route it to review instead. Fail closed when unsure.
 - Use `git mv` so the change's history follows it.
 - Run `{invariants}`, or say it is not declared. If the change added or altered a universal
   invariant and `{invariants-index}` has no row for it, say so and confirm before archiving: the
@@ -125,3 +127,16 @@ Run /wf-review <name> first, then re-run /wf-archive.
   deciding the next change.
 - Stage explicit paths, and do not sweep unrelated work into the archive commit — another
   session may have staged files.
+
+## Hand-off
+
+Then return the hand-off from `POLICY.md`'s "The hand-off":
+
+- Archived and committed → `next: done`, `stop: done`.
+- The review gate blocked → `next: review`, `next-scope: whole`, `stop: none`, `commit: none`.
+- A confirmation from step 1 is outstanding → `stop: needs-input`, before step 5.
+
+As a `wf-flow` stage, every instruction above to ask the user becomes a `stop: needs-input`
+hand-off carrying that question and your recommended answer; you are resumed with the answer and
+continue from where you stopped. Loaded directly, outside `wf-flow`, load `wf-flow` and continue
+from `next` instead of ending your turn — unless `stop` is not `none`.

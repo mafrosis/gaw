@@ -93,7 +93,8 @@ available changes.
      constrains.
    - Search the tests before proposing new behaviour: a claim the suite already pins does not
      need restating, and one it contradicts is the finding.
-   - Explore the codebase (Grep/Glob/Read) so the plan aligns with implementation reality.
+   - Explore the codebase so the plan aligns with implementation reality. Hand wide searches to
+     an `explore` subagent and keep only its findings.
 
 4. **Critique the plan**
 
@@ -158,15 +159,17 @@ available changes.
      marking each record this change contradicts, or a stated position that the decisions are
      local to this change.
 
-9. **Commit** — per the Review Proposal checkpoint in `POLICY.md`:
+9. **Update `report.md`** per `POLICY.md`'s "The report": the verdict in "Where it stands", each
+   decision this review added or reversed in "Decisions and trade-offs", and the summary below as
+   "Latest stage". A precondition or a `Rework` choice goes in "Waiting on you".
 
-   ```bash
-   git add "changes/<name>/"
-   git commit -m "docs(changes): review-proposal <name>"
-   ```
-   If the review made **no edits**, skip the commit and say so. The condition is the edits, not the
-   verdict's name: a `Sound` plan that is parked still records its precondition in `proposal.md`,
-   and that edit is committed like any other.
+10. **Commit** — per the Review Proposal checkpoint in `POLICY.md`. The report changed, so there is
+    always something to commit:
+
+    ```bash
+    git add "changes/<name>/"
+    git commit -m "docs(changes): review-proposal <name>"
+    ```
 
 **Verdict Scale**
 
@@ -188,7 +191,7 @@ carried by `Precondition:` in the output block — so "right, and waiting on ano
     new objective and it is `/wf-propose`; hold the objective and it is `/wf-update`, dropping the
     task that pursued a different one and keeping the rest of the reviewed plan.
 
-**Output On Success**
+**Stage summary** — the "Latest stage" block in `report.md`
 
 ```
 ## Proposal Review Complete: <change-name>
@@ -212,7 +215,8 @@ carried by `Precondition:` in the output block — so "right, and waiting on ano
 - **Fixing the artifacts is the deliverable, not a side effect.** Edit `proposal.md`, `design.md`,
   and `tasks.md` directly; leave them coherent with each other.
 - **Ask only on ambiguity or objective.** Not on every edit, and not before adding a task that
-  the stated objective requires.
+  the stated objective requires. A `Sound` or `Refine` verdict with no precondition goes straight
+  on to implement; it is not a reason to stop.
 - **A precondition never defers a finding.** Parking a change is a scheduling act; leaving its plan
   uncorrected is the failure `POLICY.md`'s *"The proposal is corrected before apply, not after"*
   names. The findings are closed here, whatever the plan is waiting on — by the time the
@@ -222,3 +226,18 @@ carried by `Precondition:` in the output block — so "right, and waiting on ano
 - Reuse the existing tests and code patterns; do not invent parallels.
 - **Do not write a scenario for behaviour that does not exist** unless a task in the same plan
   builds it. A requirement written as an aspiration becomes a mandate for unproposed work.
+
+## Hand-off
+
+Then return the hand-off from `POLICY.md`'s "The hand-off":
+
+- `Sound` or `Refine`, `Precondition: none` → `next: implement`, `stop: none` (`next-scope: task
+  group N` when this review was scoped to one group).
+- A precondition that is not `none` → `next: implement`, `stop: parked`.
+- `Rework` → `stop: needs-input`, with the choice step 6 describes and your recommendation.
+- A question from step 5 → `stop: needs-input`, before editing anything.
+
+As a `wf-flow` stage, every instruction above to ask the user becomes a `stop: needs-input`
+hand-off carrying that question and your recommended answer; you are resumed with the answer and
+continue from where you stopped. Loaded directly, outside `wf-flow`, load `wf-flow` and continue
+from `next` instead of ending your turn — unless `stop` is not `none`.

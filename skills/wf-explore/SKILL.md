@@ -29,7 +29,8 @@ Enter explore mode. Think deeply. Visualize freely. Follow the conversation wher
 - **Visual** - Use ASCII diagrams liberally when they'd help clarify thinking
 - **Adaptive** - Follow interesting threads, pivot when new information emerges
 - **Patient** - Don't rush to conclusions, let the shape of the problem emerge
-- **Grounded** - Explore the actual codebase when relevant, don't just theorize
+- **Grounded** - Explore the actual codebase when relevant, don't just theorize. Hand a wide
+  search to an `explore` subagent and keep the conversation for the thinking
 
 ---
 
@@ -251,7 +252,9 @@ You: That changes everything.
 
 There's no required ending. Discovery might:
 
-- **Flow into a proposal**: "Ready to start? I can create a change proposal."
+- **Flow into a proposal**: "Ready to start? I can create a change proposal." If the user says
+  yes, load `wf-flow` and run it from `propose` with what you figured out as the description — it
+  carries the change on from there until a human decision is needed
 - **Result in artifact updates**: "Updated design.md with these decisions"
 - **Just provide clarity**: User has what they need, moves on
 - **Continue later**: "We can pick this up anytime"

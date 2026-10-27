@@ -27,11 +27,13 @@ These are properties of the workflow, so a project does not get to configure the
 |---|---|
 | `changes/<name>/` | where a change lives |
 | `proposal.md` `design.md` `tasks.md` | the three artifacts every change holds |
+| `report.md` | the compounding status report, rewritten by every stage |
 | `review.md` `test_plan.md` | added once those steps have run |
 | `changes/archive/YYYY-MM-DD-<name>/` | where an archived change lands |
 | `- [ ] N.X` / `- [ ] RN.X` | the task and review-fix checkbox forms the counter and the plugin both parse |
 | `bun .opencode/workflow/changestat.ts [-change <name>] [-verify]` | the task counter: progress per change; `-verify` exits 2 while tasks remain, 1 when it cannot look |
 | `cd .opencode && bun test tests/` | the bundle's own tests — the gate for a workflow edit |
+| `wf-flow` · `wf-stage` | the orchestrator skill and the subagent each stage runs in |
 
 ## Bootstrap
 
@@ -77,19 +79,135 @@ no `{invariants}`, say that the index rows were not checked mechanically.
 
 ## The pipeline
 
-`/wf-propose` → `/wf-review-proposal` → `/wf-implement` → `/wf-review` → `/wf-archive`, with
-`/wf-update` available ad hoc and `/wf-explore` available at any point.
+```
+ /wf-explore ─▶ explore        a conversation: offers to propose, never continues by itself
+
+ /wf-propose ─▶ propose
+                   │
+                   ▼
+                review-proposal ◀──────────── update ◀─ /wf-update
+                   │  ├─ Rework ────────────────────────────────▶ STOP: decide the objective
+                   │  └─ Precondition ──────────────────────────▶ STOP: parked
+                   │ Sound / Refine
+                   ▼
+        ┌──────▶ implement
+        │          │  └─ unclear task · design issue · blocker ──▶ STOP
+        │          │ every task ticked; the review recommendation sets the review's scope
+        │          ▼
+        │        review
+        │          │  └─ route C · scope cap · mostly review-derived
+        │          │     · round 3 or later still blocking ─────▶ STOP
+        └── RN.X ──┤
+          route B  │ Approved / Approved with fixes applied
+          only     ▼
+                 archive ── no review.md, code changed ─▶ review
+                   │  └─ incomplete tasks · a record owed ──────▶ STOP: confirm
+                   ▼
+                 DONE
+```
+
+Any stage may also stop with a question it cannot resolve itself — a "needs input" stop. Answering
+it resumes the same stage, and the flow carries on from there.
 
 A change lives in `changes/<name>/` and holds three artifacts — `proposal.md` (why), `design.md`
-(how), `tasks.md` (the ordered checklist) — plus `review.md` and `test_plan.md` once those steps
-have run.
+(how), `tasks.md` (the ordered checklist) — plus `report.md` from its first stage, and `review.md`
+and `test_plan.md` once those steps have run.
 
 **There is no spec artifact.** See "Behaviour is described by tests" below.
+
+### The flow continues until a human is needed
+
+Every `/wf-*` command except `/wf-explore` runs the `wf-flow` skill, starting at that command's
+stage. It runs each stage, reads the stage's hand-off, and **starts the next stage without
+asking** — the commits are checkpoints, not pauses. It stops only on one of these:
+
+| Stop | When |
+|---|---|
+| **needs input** | a stage has a question only the user can answer: an ambiguous request, a finding whose resolution would change the objective, a route-C review finding, an archive warning to confirm |
+| **parked** | the plan is right and cannot start: `Precondition:` is not `none` |
+| **blocked** | an error or a red gate the stage could not fix within its own rules |
+| **loop guard** | a review round 3 or later returns `Changes required`; an unattended run hands that decision to a human rather than starting another round |
+| **bound** | the user asked for the run to stop at a stage ("propose only", "up to implement") |
+| **done** | the change is archived |
+
+A stop that is none of these is a fault in the stage. In particular, finishing a stage is not a
+reason to stop, a passing commit is not a reason to stop, and neither is the length of the run.
+
+| From | Outcome | Next |
+|---|---|---|
+| propose | artifacts written | review-proposal |
+| review-proposal | `Sound` or `Refine`, `Precondition: none` | implement |
+| review-proposal | scoped to one group after an escalation | implement |
+| implement | every task ticked | review, at the scope the recommendation names: full, a named surface, or the named targeted check |
+| review | `Approved`, or `Approved with fixes applied` | archive |
+| review | `Changes required`, every open finding a route-B task | implement |
+| archive | no `review.md` and the change touched code | review |
+| archive | moved and committed | done |
+| update | a design revised after an escalation | review-proposal, scoped to the affected group |
+| update | anything else | the stage `report.md` names as next |
+
+### Stages run in isolated contexts
+
+`wf-flow` is a thin orchestrator. It runs each stage in a **fresh subagent** — the `wf-stage`
+agent in `.opencode/agents/wf-stage.md` — so the code one stage read does not crowd the next
+stage's reasoning, and so the orchestrator's own context holds only hand-offs and reports. The
+orchestrator reads `report.md` and the hand-off; it does not read code.
+
+A stage running as a subagent **never asks the user directly**: the `wf-stage` agent has no
+question tool. Wherever a skill says to ask, the stage instead ends with a hand-off whose `stop` is
+`needs-input`, carrying the questions; the orchestrator asks them and resumes the same subagent with
+the answers. Inside a stage, prefer a further subagent (`explore` for reading, `general` for an
+independent check) for any wide search or second opinion whose detail the stage does not need to
+keep.
+
+Where `wf-stage` is not installed, `general` runs the stages instead — except `implement`, which
+needs `todowrite` and so runs in the orchestrator's own session.
+
+### The hand-off
+
+Every stage ends by writing `report.md` (below), committing per its checkpoint, and returning
+exactly this block as its final message:
+
+```
+WF-HANDOFF
+change: <name>
+stage: <the stage just run>
+outcome: <verdict or result, a few words>
+next: <propose | review-proposal | implement | review | archive | update | done>
+next-scope: <whole | task group N | surface <what> | targeted: <the check> | none>
+stop: <none | needs-input | parked | blocked | done>
+questions: <numbered, only when stop is needs-input: each with its options and a recommendation>
+commit: <short sha, or none>
+```
+
+A skill loaded directly in the main session, outside `wf-flow`, writes the same report and then
+loads `wf-flow` to continue from `next`, rather than ending its turn.
+
+## The report
+
+`changes/<name>/report.md` is the **one file a human reads** to know where a change stands and
+why. Every stage rewrites it in full from the previous version, so it compounds: the newest one
+carries every decision and trade-off made so far, and nothing older needs reading. Its shape is
+`.opencode/workflow/report.template.md`; the first stage to run creates it from that template.
+
+- **Cumulative sections** — "Where it stands", "Decisions and trade-offs", "Log" — are carried
+  forward and extended. A decision a later stage reversed is struck through and the reversal
+  added, not deleted.
+- **"Latest stage"** is replaced each time with that stage's own summary block.
+- **"Waiting on you"** is non-empty exactly when the flow stopped, and says what would let it
+  continue.
+- One line per decision, per log row and per open question. The report points at `design.md`,
+  `review.md` and the decision records; it does not restate them.
+
+`report.md` is staged with the stage's own checkpoint commit — every stage changes it, so every
+stage commits. It is a rolling status record like `review.md`: it cites symbols rather than lines,
+and it is **never a source of review findings**.
 
 ## Git commit policy
 
 Commits are made **automatically** at the checkpoints below. This is a standing instruction — do
-not ask for per-commit confirmation at these points.
+not ask for per-commit confirmation at these points, and do not stop after one. Every checkpoint
+commit also stages `changes/<change-name>/report.md`.
 
 ### Checkpoints
 
@@ -102,19 +220,17 @@ not ask for per-commit confirmation at these points.
    artifacts, commit them:
    - Message: `docs(changes): review-proposal <change-name>`
    - Scope: `changes/<change-name>/` (proposal.md, design.md, tasks.md)
-   - Skip the commit only if the review made no edits. The verdict's name does not decide it: a
-     `Sound` plan that is parked still records its precondition in `proposal.md`, and that is an
-     edit.
+   - A review that changed no artifact still commits, because it updated `report.md`.
 
 3. **Apply** — during `/wf-implement`, commit once per task group (each `## N` heading in
    `tasks.md`), bundling that group's code changes with its `- [x]` checkbox updates:
    - Message: `<type>(<scope>): <group summary> [<change-name>]`
    - `<type>` is one of `feat` `fix` `refactor` `test` `docs` `build` `chore`
    - Commit only after the group's work satisfies its tasks — it builds and `{gate}` passes.
-   - At the end of an apply session, write or merge `changes/<change-name>/test_plan.md` and
-     **stage it with that session's last task-group commit**, never as a commit of its own. If the
-     session paused mid-group with no group commit to attach to, the test plan waits for the next
-     one.
+   - At the end of an apply session, write or merge `changes/<change-name>/test_plan.md`, update
+     `report.md`, and **stage both with that session's last task-group commit**, never as a commit
+     of their own. If the session paused mid-group with no group commit to attach to, they wait for
+     the next one.
 
 4. **Review** — after `/wf-review` writes findings, closes the trivial ones and records the rest
    as tasks, commit all of it **together**:
@@ -184,7 +300,7 @@ review round, no archive.
 
 | | |
 |---|---|
-| **Scope** | a `wf-*` skill, a `wf-*` command, anything under `.opencode/workflow/`, `tasks-todo-sync.ts`, the bundle's tests |
+| **Scope** | a `wf-*` skill, a `wf-*` command, `wf-stage.md`, anything under `.opencode/workflow/`, `tasks-todo-sync.ts`, the bundle's tests |
 | **Message** | `docs(wf): <what>` for prose, `fix(wf): <what>` or `refactor(wf): <what>` for the executable parts |
 | **Gate** | the bundle's tests (`cd .opencode && bun test tests/`) green, explicit paths staged |
 
@@ -415,8 +531,8 @@ one reading, not a live claim.
 
 `review.md` is a dated record of a past reading. It is **never** a source of findings — not its
 own round's, not a previous one's. A review reads it for two things only: the review number, and
-which `R(N-1).X` items to judge. The same applies to narration in `tasks.md`, which this file
-already forbids. Reviewing prose produces prose findings, whose fixes are more prose, which the
+which `R(N-1).X` items to judge. The same applies to `report.md` and to narration in `tasks.md`,
+which this file already forbids. Reviewing prose produces prose findings, whose fixes are more prose, which the
 next round then verifies.
 
 **A review is as short as its findings allow.** Artifact volume predicts review rounds: prose makes

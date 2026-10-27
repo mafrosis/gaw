@@ -21,12 +21,13 @@ ambiguous you MUST ask rather than guess.
 
 ## Steps
 
-1. **Select the change.** `bun .opencode/workflow/changestat.ts` lists the active ones with task progress. Present
-   the plausible candidates with the **question** tool, marking the most recently
-   modified "(Recommended)". Never auto-select.
+1. **Select the change.** If a name was given, use it. Otherwise
+   `bun .opencode/workflow/changestat.ts` lists the active ones with task progress; present the
+   plausible candidates with the **question** tool, marking the most recently modified
+   "(Recommended)". Never auto-select.
 
-2. **Read what exists.** A change holds `proposal.md`, `design.md` and `tasks.md`, and
-   possibly `review.md` and `test_plan.md`. Revise only files that already exist; if an
+2. **Read what exists.** A change holds `proposal.md`, `design.md`, `tasks.md` and `report.md`,
+   and possibly `review.md` and `test_plan.md`. Revise only files that already exist; if an
    artifact is missing, say so and point at `/wf-propose` rather than creating it here.
 
    **A revision to `tasks.md` obliges a re-seed of the todo list — but only once the change has
@@ -50,35 +51,54 @@ ambiguous you MUST ask rather than guess.
    authoring order is a useful reading order, not a constraint on what may be revised. If the
    change is already coherent, say so and write nothing.
 
-5. **Confirm and apply, one artifact at a time.** Show each proposed revision and why; write
-   only after the user confirms. If they reject one, leave that artifact untouched.
+5. **Apply, and confirm only what was not asked for.** An edit that carries out the revision the
+   user requested, or that restores coherence with it, is applied without asking — the request
+   was the confirmation. Ask, one question for the lot, only before an edit the request did not
+   imply: one that changes scope, drops a task, or alters a decision. If the user rejects one,
+   leave that artifact untouched.
 
-   **Exception:** when `wf-review-proposal` delegates a reconciliation, it has already
-   agreed the revisions and owns the review — apply them and report rather than re-confirming
-   each.
+   When `wf-review-proposal` delegates a reconciliation, it has already agreed the revisions and
+   owns the review — apply them all without asking.
 
-6. **Commit** — per the Update checkpoint in `POLICY.md`:
+6. **Update `report.md`** per `POLICY.md`'s "The report" — each decision revised or reversed in
+   "Decisions and trade-offs", and what changed as "Latest stage" — unless delegated, when the
+   caller updates it.
+
+   **Commit** — per the Update checkpoint in `POLICY.md`:
    ```bash
-   git add <the revised artifact files>
+   git add <the revised artifact files> "changes/<name>/report.md"
    git commit -m "docs(changes): update <name>"
    ```
    **Skip the commit** when no edits were made, or when this skill was invoked as a delegated
    sub-step of a workflow step that owns the commit — leave the revisions staged for the caller.
 
-7. **Point at the next step, without acting on it.**
-   - Revising a design because `/wf-review` escalated a `design` finding → `/wf-review-proposal`
-     on the affected unbuilt task group, then `/wf-implement`. Skipping the review puts
-     unreviewed design into the tree.
-   - Change already implemented → the code may no longer match the revised plan; `/wf-implement`
-     carries the delta into code.
-   - Everything done → `/wf-archive`.
+7. **Name the next stage; do not run it here.** The choice is the hand-off below.
 
 ## Guardrails
 
 - **Planning artifacts only — never edit implementation code.** If the revised plan implies a
   code change, stop and point at `/wf-implement`.
 - Revise only files that exist; creating artifacts is `/wf-propose`'s job.
-- Confirm every edit before writing, except when delegated per step 5.
+- Confirm only edits the request did not imply, per step 5.
 - Durable artifacts cite **symbols**, never `file:line` (`POLICY.md`).
 - If the request changes the change's *intent* rather than refining it, recommend a fresh
   change instead.
+
+## Hand-off
+
+When delegated by `wf-review-proposal`, return to it and hand off nothing. Otherwise return the
+hand-off from `POLICY.md`'s "The hand-off":
+
+- A design revised because a review escalated a `design` finding → `next: review-proposal`,
+  `next-scope: task group N`, `stop: none`. Skipping that review puts unreviewed design into the
+  tree.
+- Planning revised on a change with unbuilt or changed tasks → `next: review-proposal`,
+  `next-scope: whole`, `stop: none`, unless only wording changed, then the stage `report.md`
+  named as next before this one.
+- Everything already implemented and unchanged in substance → `next: archive`, `stop: none`.
+- A question from step 5 → `stop: needs-input`.
+
+As a `wf-flow` stage, every instruction above to ask the user becomes a `stop: needs-input`
+hand-off carrying that question and your recommended answer; you are resumed with the answer and
+continue from where you stopped. Loaded directly, outside `wf-flow`, load `wf-flow` and continue
+from `next` instead of ending your turn — unless `stop` is not `none`.

@@ -9,14 +9,16 @@ project's; nothing here is specific to the repository it was written in.
 
 | Path | What it is |
 |---|---|
-| `skills/wf-*/SKILL.md` | the workflow's stages, and `wf-explore` for thinking before one |
-| `commands/wf-*.md` | the slash commands; each is a pointer to its skill |
+| `skills/wf-*/SKILL.md` | the workflow's stages, `wf-explore`, and `wf-flow`, which runs the stages one after another |
+| `commands/wf-*.md` | the slash commands; each starts `wf-flow` at its stage, and `/wf-continue` resumes a change |
+| `.opencode/agents/wf-stage.md` | the subagent each stage runs in, so stages do not share a context |
 | `.opencode/workflow/POLICY.md` | the rules, project-neutral; not edited per project |
 | `.opencode/workflow/PROJECT.template.md` | every slot, empty; the project's copy is its own |
 | `.opencode/workflow/changestat.ts` | the task counter |
 | `.opencode/workflow/tasks.ts` | the checkbox parser, shared by the counter and the plugin |
 | `.opencode/workflow/decisions/` | decision-record templates, copied on first use |
 | `.opencode/workflow/invariants.template.md` | the invariants index, copied on first use |
+| `.opencode/workflow/report.template.md` | the shape of each change's compounding `report.md` |
 | `.opencode/plugins/tasks-todo-sync.ts` | reports when `tasks.md` and the session's todo list disagree |
 | `.opencode/tests/` | the bundle's own tests |
 

@@ -38,8 +38,9 @@ Implement tasks from a change.
    bun .opencode/workflow/changestat.ts -change <name>
    ```
 
-   - **No `tasks.md`:** the change is not ready to apply — point at `/wf-propose`.
-   - **All tasks ticked:** say so and suggest `/wf-archive`.
+   - **No `tasks.md`:** the change is not ready to apply — hand off to propose.
+   - **All tasks ticked:** say so and hand off to review (or archive, if the latest review has
+     already approved it).
    - **Otherwise:** announce the progress and the remaining task groups, then proceed to
      implementation starting at the first unticked task.
 
@@ -87,11 +88,14 @@ Implement tasks from a change.
    `tasks-todo-sync` reports a disagreement in the result of the edit that caused it; if it has said
    nothing, there is nothing to reconcile.
 
-   **Pause if:**
+   **Pause if** — and only if:
    - Task is unclear → ask for clarification
-   - Implementation reveals a design issue → suggest updating artifacts
-   - Error or blocker encountered → report and wait for guidance
+   - Implementation reveals a design issue → ask, recommending `/wf-update` +
+     `/wf-review-proposal`
+   - Error or blocker encountered that you cannot resolve within the task → report it
    - User interrupts
+
+   Finishing a group is not a pause: commit it and start the next group.
 
    **Capture a decision this session made, before its evidence is gone.** Apply is where a
    decision is not just taken but *measured* — attempts made, what each returned — and that
@@ -161,56 +165,62 @@ Implement tasks from a change.
    a bug. If the fix requires a new mechanism or an interface change, stop and escalate to
    `/wf-update` + `/wf-review-proposal` rather than designing it here.
 
-6. **On completion or pause, show status**
+6. **On completion or pause, record status**
 
-   Display:
+   In `report.md` and the hand-off:
    - Tasks completed this session
    - Overall progress: "N/M tasks complete"
-   - If all done: suggest archive
-   - If paused: **name which of step 4's four conditions fired**, then wait for guidance
+   - If paused: **name which of step 4's four conditions fired**
 
    If none of the four fired, the session has not paused; it has stopped, and the next one pays the
    re-entry.
 
 7. **Addendum — recommended test plan** (run when the apply session concludes: all tasks complete, or you're wrapping up a partial session)
 
-   **Write this before making the session's last task-group commit**, because it is staged *with*
-   that commit rather than after it. If the last group is already committed when you get here, stage
-   the test plan with the next group commit instead — do not make a commit that carries only the
-   test plan.
+   **Write this, and work out step 8's recommendation, before making the session's last task-group
+   commit**, because the test plan and `report.md` are staged *with* that commit rather than after
+   it. If the last group is already committed when you get here, stage them with the next group
+   commit instead — do not make a commit that carries only these files.
 
    a. Summarize the work completed this session, including any task groups left incomplete (see step 6).
 
-   b. Present the user with a **Recommended Test Plan** — concrete steps and commands to verify
+   b. Write a **Recommended Test Plan** — concrete steps and commands to verify
       the functionality works as intended: the `{test}` command, a narrower run of the packages or
       modules touched, manual steps, example requests. Prefer the project's real commands, as
       `PROJECT.md` declares them, over invented ones.
 
    c. Write `changes/<name>/test_plan.md`. If it already exists, **merge** with the existing content (do not clobber it) so it stays a comprehensive test plan for future readers.
 
-   d. **Stage it with the group commit** — per the Apply checkpoint in `POLICY.md`:
+   d. **Update `report.md`** per `POLICY.md`'s "The report": progress in "Where it stands", each
+      decision and deviation this session made in "Decisions and trade-offs", the completion
+      summary below as "Latest stage", and — if paused — the question in "Waiting on you".
+
+   e. **Stage both with the group commit** — per the Apply checkpoint in `POLICY.md`:
       ```bash
-      git add <this group's files> "changes/<name>/tasks.md" "changes/<name>/test_plan.md"
+      git add <this group's files> "changes/<name>/tasks.md" "changes/<name>/test_plan.md" "changes/<name>/report.md"
       git commit -m "<type>(<scope>): <group summary> [<name>]"
       ```
-      The test plan describes the work in that commit, so it belongs in it.
+      The test plan and the report describe the work in that commit, so they belong in it.
 
-      Nothing to do if `test_plan.md` is unchanged. Defer the addendum entirely if apply paused
-      mid-task awaiting clarification.
+      If apply paused mid-task awaiting clarification, update `report.md` only and leave it for
+      the next group commit.
 
-8. **Close the report with a recommendation on whether to review**
+8. **Close the report with a recommendation on whether to review** — it sets the scope of the
+   review stage the flow runs next
 
     The last thing the report says is whether `/wf-review` is worth a session. A round costs
     roughly what the apply session cost, so make the decision explicitly.
 
     **State the action, not a confidence about the action.** One of exactly three:
 
-    - **Skip the round**, naming the cheaper check that replaces it. Available **only** when all
-      four conditions hold: no new mechanism, interface or module boundary was authored; every guard
-      added is mutation-proven red with the mutation in a test comment; every **clause** of every
-      behaviour the proposal promised is pinned by a named test; and the production diff is small
-      enough that a reader can hold it in their head.
-    - **Review, scoped to the surface you name** — the default when any one of the four is unmet.
+    - **Skip the round**, naming the cheaper check that replaces it. The review stage then runs only
+      that check (`next-scope: targeted: <the check>`). Available **only** when all four conditions
+      hold: no new mechanism, interface or module boundary was authored; every guard added is
+      mutation-proven red with the mutation in a test comment; every **clause** of every behaviour
+      the proposal promised is pinned by a named test; and the production diff is small enough that
+      a reader can hold it in their head.
+    - **Review, scoped to the surface you name** — the default when any one of the four is unmet
+      (`next-scope: surface <what>`).
     - **Run `/wf-review`** — any new mechanism, any guard added without a failing test, or a
       production diff large enough that its own author cannot enumerate its edges.
 
@@ -260,7 +270,7 @@ Working on task 4/7: <task description>
 ✓ Task complete
 ```
 
-**Output On Completion**
+**Stage summary on completion** — the "Latest stage" block in `report.md`
 
 ```
 ## Implementation Complete
@@ -299,26 +309,25 @@ Conditions unmet: <n> of 4<, and which>.
 
 **What would change this:** <the specific finding that would move the recommendation>
 
-All tasks complete! Next: <`/wf-review`, or the named check then `/wf-archive`>.
+All tasks complete. Next: review — <whole | scoped to <surface> | targeted: <check>>.
 ```
 
-**Output On Pause (Issue Encountered)**
+**Stage summary on pause** — the "Latest stage" block in `report.md`; the options also go in the
+hand-off's `questions`
 
 ```
 ## Implementation Paused
 
 **Change:** <change-name>
 **Progress:** 4/7 tasks complete
+**Condition:** <which of step 4's four fired>
 
 ### Issue Encountered
 <description of the issue>
 
 **Options:**
-1. <option 1>
+1. <option 1, recommended>
 2. <option 2>
-3. Other approach
-
-What would you like to do?
 ```
 
 **Guardrails**
@@ -354,12 +363,26 @@ What would you like to do?
   leaving it uncaptured makes the next change repeat it. A decision that changes *direction*
   escalates instead.
 - Pause on errors, blockers, or unclear requirements - don't guess
-- On wrap-up, present a recommended test plan and write/merge `changes/<name>/test_plan.md`,
-  **staged with the session's last task-group commit** and never as a commit of its own, per the
-  Apply checkpoint in `POLICY.md`. Write it before making that commit.
+- On wrap-up, write/merge `changes/<name>/test_plan.md` and update `report.md`, both **staged
+  with the session's last task-group commit** and never as a commit of their own, per the Apply
+  checkpoint in `POLICY.md`. Write them before making that commit.
 - **Close the report with a review recommendation** (step 8): one of the three actions, how many
   of the four conditions are unmet, the six signals, and what would move it. Skipping names the
   cheaper check *in the recommendation itself* — a recommendation to skip with no named substitute
   is a recommendation to stop checking.
 - **A claim is not pinned until a test exercises every clause of it.** Until it is done per
   clause, that is a condition unmet, so skipping is not available.
+
+## Hand-off
+
+Then return the hand-off from `POLICY.md`'s "The hand-off":
+
+- Every task ticked → `next: review`, `next-scope` from step 8's recommendation, `stop: none`.
+- Paused on an unclear task or a design issue → `stop: needs-input`, with the options from the
+  pause summary. You are resumed with the answer and carry on at the task that paused.
+- Paused on a blocker you could not resolve → `stop: blocked`.
+
+As a `wf-flow` stage, every instruction above to ask the user becomes a `stop: needs-input`
+hand-off carrying that question and your recommended answer; you are resumed with the answer and
+continue from where you stopped. Loaded directly, outside `wf-flow`, load `wf-flow` and continue
+from `next` instead of ending your turn — unless `stop` is not `none`.

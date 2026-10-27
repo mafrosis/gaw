@@ -19,6 +19,7 @@
  * 6. The template declares the slots `POLICY.md` calls required.
  * 7. No file in the bundle — including its own tests — reads a path outside `.opencode/`.
  * 8. No portable prose file narrates the history of the project the bundle was written in.
+ * 9. Every stage skill ends with a hand-off, and the stage agent cannot ask the user anything.
  *
  * # What it deliberately does not assert
  *
@@ -100,6 +101,9 @@ const WORKFLOW_OWNED = [
   "NNNN-short-title.md",
   "0001-record-architecture-decisions.md",
   "invariants.template.md",
+  "report.md",
+  "report.template.md",
+  "wf-stage.md",
   "self-contained.test.ts",
 ]
 
@@ -132,6 +136,7 @@ function files(): { name: string; body: string }[] {
   return [
     ...skills().map((s) => ({ name: `skills/${s.name}/SKILL.md`, body: s.body })),
     ...markdown(COMMANDS, "commands").filter((f) => f.name.match(/\/wf-[^/]+\.md$/)),
+    ...markdown(join(BUNDLE, "agents"), "agents").filter((f) => f.name.match(/\/wf-[^/]+\.md$/)),
     ...markdown(WORKFLOW, "workflow").filter((f) => f.name !== "workflow/PROJECT.md"),
   ]
 }
@@ -262,6 +267,46 @@ describe("no portable file narrates the history of the project it came from", ()
       expect(found).toEqual([])
     })
   }
+})
+
+describe("the flow between stages", () => {
+  /** The skills that are not stages: one is a conversation, the other runs the stages. */
+  const NOT_STAGES = new Set(["wf-explore", "wf-flow"])
+  const STAGE_AGENT = join(BUNDLE, "agents", "wf-stage.md")
+
+  for (const s of skills().filter((s) => !NOT_STAGES.has(s.name))) {
+    test(`${s.name} ends with a hand-off`, () => {
+      // Fails when a stage skill loses its "## Hand-off" section, or it stops being the last one:
+      // the orchestrator then gets no next stage and the flow halts after it.
+      const at = s.body.lastIndexOf("\n## Hand-off\n")
+      expect(at).toBeGreaterThan(0)
+      expect(s.body.slice(at + 1).match(/^## /gm)).toHaveLength(1)
+      expect(s.body.slice(at)).toContain("`stop: needs-input`")
+    })
+  }
+
+  test("the stage agent denies the question tool and allows todowrite", () => {
+    // Fails without `question: deny`: a stage could then ask from inside a subagent, where the
+    // orchestrator cannot see the question. Fails without `todowrite: allow`: the implement stage
+    // loses its task mirror.
+    const front = read(STAGE_AGENT).split("---")[1]!
+
+    expect(front).toMatch(/^mode: subagent$/m)
+    expect(front).toMatch(/^  question: deny$/m)
+    expect(front).toMatch(/^  todowrite: allow$/m)
+  })
+
+  test("wf-flow launches the stage agent, and every stage command runs wf-flow", () => {
+    // Fails when a command goes back to loading its skill directly, which runs that stage in the
+    // main session and ends the flow after it.
+    expect(read(join(SKILLS, "wf-flow", "SKILL.md"))).toContain('subagent_type: "wf-stage"')
+
+    const commands = markdown(COMMANDS, "commands").filter(
+      (f) => f.name.match(/\/wf-[^/]+\.md$/) && !f.name.endsWith("/wf-explore.md"),
+    )
+    expect(commands.length).toBeGreaterThanOrEqual(7)
+    for (const c of commands) expect([c.name, c.body.includes("load `wf-flow`")]).toEqual([c.name, true])
+  })
 })
 
 describe("PROJECT.template.md declares what POLICY.md requires", () => {

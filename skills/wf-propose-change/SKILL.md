@@ -50,7 +50,8 @@ still owes a decision record.
 2. **Check the name is free.** If `changes/<name>/` already exists, ask whether to continue
    that change or pick another name.
 
-3. **Read the ground truth before writing.** `POLICY.md`, the records in `{decisions-dir}` that
+3. **Read the ground truth before writing.** Hand wide searches to an `explore` subagent and
+   keep only what it finds. `POLICY.md`, the records in `{decisions-dir}` that
    `POLICY.md`'s *"Which records a design must account for"* makes relevant — every one naming a
    symbol the design names — and the code the change will touch. A proposal written without
    reading the code is where scope errors come from.
@@ -89,9 +90,15 @@ still owes a decision record.
      `{gate}` closing each group.
    - Each task must be verifiable — you can tell when it is done.
 
-5. **Report status** with `bun .opencode/workflow/changestat.ts` and confirm all three artifacts exist.
+5. **Check status** with `bun .opencode/workflow/changestat.ts -change <name>` and confirm all
+   three artifacts exist.
 
-6. **Commit** — per the Propose checkpoint in `POLICY.md`:
+6. **Write `report.md`** from `.opencode/workflow/report.template.md`, per `POLICY.md`'s "The
+   report": "Where it stands" shows propose done, "Decisions and trade-offs" lists the design's
+   decisions one line each, and "Latest stage" summarises the change's objective, the task groups
+   and anything deliberately out of scope.
+
+7. **Commit** — per the Propose checkpoint in `POLICY.md`:
    ```bash
    git add changes/<name>
    git commit -m "docs(changes): propose <name>"
@@ -133,3 +140,18 @@ still owes a decision record.
   does not exist yet, that task creates it from the template (`POLICY.md`'s "Bootstrap"). Before
   proposing a type to hold the invariant, read `POLICY.md`'s "Check that option 1 really is
   option 1".
+
+## Hand-off
+
+Then return the hand-off from `POLICY.md`'s "The hand-off":
+
+- Artifacts written and committed → `next: review-proposal`, `next-scope: whole`, `stop: none`.
+- The input is unclear, or the name is taken → `stop: needs-input` before step 3, with the
+  question; nothing is written yet.
+- The request is a workflow edit (above) → make the direct commit, then `next: done`,
+  `stop: done`.
+
+As a `wf-flow` stage, every instruction above to ask the user becomes a `stop: needs-input`
+hand-off carrying that question and your recommended answer; you are resumed with the answer and
+continue from where you stopped. Loaded directly, outside `wf-flow`, load `wf-flow` and continue
+from `next` instead of ending your turn — unless `stop` is not `none`.

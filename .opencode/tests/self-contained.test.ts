@@ -79,8 +79,6 @@ const RUNNERS =
 const WORKFLOW_OWNED = [
   "changes/",
   "archive/",
-  // POLICY.md still states that this directory does not exist; removed with that sentence.
-  "specs/",
   "proposal.md",
   "design.md",
   "tasks.md",
